@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run dev)",
+      "Bash(curl:*)",
+      "Bash(npx create-react-app:*)",
+      "Bash(npm start)",
+      "Bash(npx react-native:*)",
+      "Bash(npx @react-native-community/cli init:*)",
+      "Bash(npx create-expo-app:*)",
+      "Bash(pkill:*)",
+      "Bash(taskkill:*)",
+      "Bash(node test_conversion:*)",
+      "Read(//c/Users/torre/Desktop/**)",
+      "Bash(npx tsc:*)",
+      "Bash(npm start:*)",
+      "Bash(npx expo start:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
