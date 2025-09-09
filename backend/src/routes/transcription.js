@@ -868,6 +868,60 @@ router.post('/export-pdf', async (req, res) => {
   }
 });
 
+// POST /api/transcription/generate-block - Generar contenido para bloque específico con IA
+router.post('/generate-block', async (req, res) => {
+  try {
+    console.log('🎯 Endpoint /generate-block llamado');
+    console.log('📦 Body recibido:', {
+      block_type: req.body.block_type,
+      user_prompt_length: req.body.user_prompt?.length,
+      context_text_length: req.body.context_text?.length,
+      subject: req.body.subject
+    });
+    
+    const { block_type, user_prompt, context_text, subject = 'general' } = req.body;
+
+    if (!block_type || !user_prompt || !context_text) {
+      console.error('❌ Faltan parámetros requeridos');
+      return res.status(400).json({ 
+        error: 'Se requieren: block_type, user_prompt y context_text' 
+      });
+    }
+
+    const validBlockTypes = [
+      'heading', 'paragraph', 'list', 'concept_block', 
+      'summary_block', 'key_concepts_block'
+    ];
+    
+    if (!validBlockTypes.includes(block_type)) {
+      console.error('❌ Tipo de bloque inválido:', block_type);
+      return res.status(400).json({ 
+        error: `Tipo de bloque inválido. Tipos válidos: ${validBlockTypes.join(', ')}` 
+      });
+    }
+
+    console.log('🔄 Llamando a generateBlock service...');
+    const generatedBlock = await transcriptionService.generateBlock(
+      block_type,
+      user_prompt,
+      context_text,
+      subject
+    );
+
+    res.json({
+      success: true,
+      data: generatedBlock
+    });
+
+  } catch (error) {
+    console.error('Error generando bloque con IA:', error);
+    res.status(500).json({ 
+      error: 'Error generando el bloque con IA',
+      details: error.message 
+    });
+  }
+});
+
 // GET /api/transcription/download-pdf/:filename - Descargar PDF directamente
 router.get('/download-pdf/:filename', async (req, res) => {
   try {

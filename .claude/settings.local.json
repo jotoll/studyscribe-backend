@@ -17,7 +17,10 @@
       "Read(//c/Users/torre/Desktop/**)",
       "Bash(npx tsc:*)",
       "Bash(npm start:*)",
-      "Bash(npx expo start:*)"
+      "Bash(npx expo start:*)",
+      "Bash(sed:*)",
+      "Bash(npm run build)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

@@ -138,17 +138,47 @@ class TranscriptionService {
         
         for (const chunk of enhancedChunks) {
           try {
-            const chunkData = JSON.parse(chunk);
+            // Intentar extraer JSON de code blocks markdown primero
+            let chunkData;
+            const jsonMatch = chunk.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+            if (jsonMatch && jsonMatch[1]) {
+              console.log('🎯 Extrayendo JSON de code block en chunk processing');
+              chunkData = JSON.parse(jsonMatch[1].trim());
+            } else {
+              // Si no hay code blocks, parsear directamente
+              chunkData = JSON.parse(chunk);
+            }
+            
             // Combinar lógicamente los datos de cada chunk
             if (chunkData.sections) combinedData.sections.push(...chunkData.sections);
             if (chunkData.key_concepts) combinedData.key_concepts.push(...chunkData.key_concepts);
             if (chunkData.summary) combinedData.summary += chunkData.summary + "\n\n";
           } catch (error) {
             console.warn('Error parsing chunk JSON:', error.message);
-            combinedData.sections.push({
-              type: "paragraph",
-              content: chunk
-            });
+            
+            // Intentar limpiar el contenido y parsear nuevamente
+            try {
+              const cleanedContent = chunk
+                .replace(/```(?:json)?/g, '')
+                .replace(/```/g, '')
+                .trim();
+              
+              if (cleanedContent !== chunk) {
+                console.log('🔄 Intentando parsear contenido limpiado en chunk');
+                const chunkData = JSON.parse(cleanedContent);
+                if (chunkData.sections) combinedData.sections.push(...chunkData.sections);
+                if (chunkData.key_concepts) combinedData.key_concepts.push(...chunkData.key_concepts);
+                if (chunkData.summary) combinedData.summary += chunkData.summary + "\n\n";
+              } else {
+                throw new Error('No se pudo limpiar el contenido del chunk');
+              }
+            } catch (cleanError) {
+              console.warn('❌ Fallback necesario, usando contenido raw del chunk');
+              combinedData.sections.push({
+                type: "paragraph",
+                content: chunk
+              });
+            }
           }
         }
         
@@ -178,13 +208,40 @@ class TranscriptionService {
           max_tokens: 2000
         });
 
-        // Parsear la respuesta JSON de DeepSeek
+        // Parsear la respuesta JSON de DeepSeek, manejando posibles code blocks
         let enhancedData;
+        let rawContent = response.choices[0].message.content;
+        
         try {
-          enhancedData = JSON.parse(response.choices[0].message.content);
+          // Intentar extraer JSON de code blocks markdown primero
+          const jsonMatch = rawContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+          if (jsonMatch && jsonMatch[1]) {
+            console.log('🎯 Extrayendo JSON de code block en enhanceTranscription');
+            enhancedData = JSON.parse(jsonMatch[1].trim());
+          } else {
+            // Si no hay code blocks, parsear directamente
+            enhancedData = JSON.parse(rawContent);
+          }
         } catch (error) {
-          console.warn('Error parsing JSON from DeepSeek, using raw content:', error.message);
-          enhancedData = { raw_content: response.choices[0].message.content };
+          console.warn('Error parsing JSON from DeepSeek:', error.message);
+          
+          // Intentar limpiar el contenido y parsear nuevamente
+          try {
+            const cleanedContent = rawContent
+              .replace(/```(?:json)?/g, '')
+              .replace(/```/g, '')
+              .trim();
+            
+            if (cleanedContent !== rawContent) {
+              console.log('🔄 Intentando parsear contenido limpiado en enhanceTranscription');
+              enhancedData = JSON.parse(cleanedContent);
+            } else {
+              throw new Error('No se pudo limpiar el contenido');
+            }
+          } catch (cleanError) {
+            console.warn('❌ Fallback necesario, usando contenido raw');
+            enhancedData = { raw_content: rawContent };
+          }
         }
         
         return {
@@ -602,6 +659,217 @@ Formato de salida en Markdown con estructura clara.`;
     }
 
     return blocks;
+  }
+
+  // Generar bloque específico con IA usando contexto
+  async generateBlock(blockType, userPrompt, contextText, subject = 'general') {
+    try {
+      // Detectar si el usuario solicita un tipo de bloque diferente
+      let finalBlockType = blockType;
+      
+      // Análisis del prompt del usuario para detectar intención
+      const userPromptLower = userPrompt.toLowerCase();
+      
+      if (userPromptLower.includes('listado') || 
+          userPromptLower.includes('lista') || 
+          userPromptLower.includes('enumera') || 
+          userPromptLower.includes('puntos') ||
+          userPromptLower.includes('items') ||
+          userPromptLower.includes('elementos')) {
+        console.log('🎯 Detectada intención de lista, cambiando blockType a list');
+        finalBlockType = 'list';
+      } else if (userPromptLower.includes('conceptos clave') || 
+                 userPromptLower.includes('key concepts') || 
+                 userPromptLower.includes('conceptos principales')) {
+        console.log('🎯 Detectada intención de conceptos clave, cambiando blockType a key_concepts_block');
+        finalBlockType = 'key_concepts_block';
+      } else if (userPromptLower.includes('concepto') || 
+                 userPromptLower.includes('definición') || 
+                 userPromptLower.includes('definir')) {
+        console.log('🎯 Detectada intención de concepto, cambiando blockType a concept_block');
+        finalBlockType = 'concept_block';
+      } else if (userPromptLower.includes('resumen') || 
+                 userPromptLower.includes('resumir')) {
+        console.log('🎯 Detectada intención de resumen, cambiando blockType a summary_block');
+        finalBlockType = 'summary_block';
+      } else if (userPromptLower.includes('título') || 
+                 userPromptLower.includes('titulo') || 
+                 userPromptLower.includes('heading') || 
+                 userPromptLower.includes('encabezado') ||
+                 userPromptLower.includes('cabecera')) {
+        console.log('🎯 Detectada intención de título/encabezado, cambiando blockType a heading');
+        finalBlockType = 'heading';
+      }
+      
+      const systemPrompt = this.getBlockGenerationPrompt(finalBlockType, subject);
+
+      console.log('🔍 Generando bloque con IA - Tipo solicitado:', blockType);
+      console.log('🔍 Tipo final detectado:', finalBlockType);
+      console.log('📝 Prompt del usuario:', userPrompt.substring(0, 100) + '...');
+      console.log('📋 Contexto length:', contextText.length);
+      console.log('🔍 Muestra del contexto (primeros 200 chars):', contextText.substring(0, 200) + '...');
+      
+      // Truncar contexto si es demasiado largo para evitar que domine sobre la instrucción del usuario
+      // También extraer texto si el contexto es un objeto JSON
+      let processedContext = contextText;
+      
+      // Si el contexto parece ser JSON, extraer solo el texto
+      try {
+        if (contextText.trim().startsWith('{') || contextText.trim().startsWith('[')) {
+          const contextData = JSON.parse(contextText);
+          // Extraer todo el texto de las secciones
+          if (contextData.sections && Array.isArray(contextData.sections)) {
+            processedContext = contextData.sections
+              .map(section => section.content || section.text || '')
+              .filter(Boolean)
+              .join('\n');
+            console.log('🔄 Contexto JSON convertido a texto plano, length:', processedContext.length);
+          }
+        }
+      } catch (e) {
+        console.log('ℹ️  Contexto no es JSON válido, usando como texto plano');
+      }
+      
+      const truncatedContext = processedContext.length > 1000 ? 
+        processedContext.substring(0, 1000) + '... [contexto truncado]' : 
+        processedContext;
+      
+      const fullPrompt = `⚠️⚠️⚠️ INSTRUCCIÓN PRINCIPAL DEL USUARIO (OBLIGATORIO - IGNORAR CONTEXTO SI ES NECESARIO):\n${userPrompt}\n\n💡 CONTEXTO DE FONDO (SOLO PARA REFERENCIA - NO ES OBLIGATORIO USARLO):\n${truncatedContext}\n\n🚨 GENERA EXCLUSIVAMENTE EL BLOQUE SOLICITADO EN FORMATO JSON, SIGUIENDO ÚNICAMENTE LA INSTRUCCIÓN PRINCIPAL DEL USUARIO:`;
+      
+      let response;
+      try {
+        response = await deepseek.chat.completions.create({
+          model: DEEPSEEK_MODELS.CHAT,
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt
+            },
+            {
+              role: "user",
+              content: fullPrompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 1000
+        });
+
+        console.log('✅ Respuesta de DeepSeek recibida');
+        console.log('📄 Contenido crudo:', response.choices[0].message.content.substring(0, 200) + '...');
+      } catch (apiError) {
+        console.error('❌ Error en API de DeepSeek:', apiError.message);
+        throw new Error(`Error en API de DeepSeek: ${apiError.message}`);
+      }
+
+      // Parsear la respuesta JSON, manejando posibles code blocks
+      let generatedData;
+      let rawContent = response.choices[0]?.message?.content;
+      
+      if (!rawContent) {
+        console.error('❌ Respuesta de DeepSeek vacía o inválida:', response);
+        throw new Error('La API de DeepSeek devolvió una respuesta vacía');
+      }
+      
+      try {
+        // Intentar extraer JSON de code blocks markdown primero
+        const jsonMatch = rawContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (jsonMatch && jsonMatch[1]) {
+          console.log('🎯 Extrayendo JSON de code block');
+          generatedData = JSON.parse(jsonMatch[1].trim());
+        } else {
+          // Si no hay code blocks, parsear directamente
+          generatedData = JSON.parse(rawContent);
+        }
+        console.log('🎯 JSON parseado correctamente:', JSON.stringify(generatedData, null, 2));
+      } catch (error) {
+        console.warn('❌ Error parsing block JSON:', error.message);
+        console.warn('📋 Contenido que falló:', rawContent);
+        
+        // Intentar limpiar el contenido y parsear nuevamente
+        try {
+          const cleanedContent = rawContent
+            .replace(/```(?:json)?/g, '')
+            .replace(/```/g, '')
+            .trim();
+          
+          if (cleanedContent !== rawContent) {
+            console.log('🔄 Intentando parsear contenido limpiado');
+            generatedData = JSON.parse(cleanedContent);
+            console.log('✅ Parseo exitoso después de limpieza');
+          } else {
+            throw new Error('No se pudo limpiar el contenido');
+          }
+        } catch (cleanError) {
+          console.warn('❌ Fallback necesario, usando contenido raw');
+          // Fallback: crear bloque básico con el contenido raw
+          generatedData = this.createFallbackBlock(blockType, rawContent);
+          console.log('🔄 Usando fallback:', JSON.stringify(generatedData, null, 2));
+        }
+      }
+
+      return {
+        block_type: blockType,
+        generated_content: generatedData,
+        user_prompt: userPrompt,
+        generated_at: new Date().toISOString()
+      };
+
+    } catch (error) {
+      throw new Error(`Error generando bloque ${blockType}: ${error.message}`);
+    }
+  }
+
+  // Prompt especializado para generación de bloques
+  getBlockGenerationPrompt(blockType, subject) {
+    const basePrompt = `Eres StudyScribe AI, especializado en generar contenido educativo para bloques específicos.
+
+INSTRUCCIONES CRÍTICAS:
+1. 🚨 SIGUE EXACTAMENTE LA INSTRUCCIÓN DEL USUARIO - IGNORA COMPLETAMENTE EL CONTEXTO SI CONTRADICE LA INSTRUCCIÓN
+2. Usa el CONTEXTO proporcionado SOLO si es compatible con la instrucción del usuario
+3. Devuelve SOLO el bloque solicitado en formato JSON válido
+4. Si el contexto contradice la instrucción del usuario, IGNORA EL CONTEXTO COMPLETAMENTE
+5. Usa lenguaje académico pero accesible
+6. EL TIPO DE BLOQUE DEBE SER EXACTAMENTE EL SOLICITADO: ${blockType}
+
+IMPORTANTE: 
+- Solo devuelve el objeto JSON del bloque, sin texto adicional
+- NO uses markdown code blocks (\`\`\`json o \`\`\`)
+- Devuelve SOLO el objeto JSON crudo, sin comentarios ni explicaciones
+- Asegúrate de que el JSON sea válido y esté bien formado`;
+
+    const blockPrompts = {
+      heading: basePrompt + `\n\nFormato EXACTO para heading: { "type": "heading", "level": 2, "content": "Texto del encabezado" }`,
+      paragraph: basePrompt + `\n\nFormato EXACTO para paragraph: { "type": "paragraph", "content": "Contenido del párrafo" }`,
+      list: basePrompt + `\n\nFormato EXACTO para list: { "type": "list", "style": "bulleted", "items": ["item 1", "item 2"] }`,
+      concept_block: basePrompt + `\n\nFormato EXACTO para concept_block: { "type": "concept_block", "term": "Término", "definition": "Definición", "examples": ["ejemplo 1", "ejemplo 2"] }`,
+      summary_block: basePrompt + `\n\nFormato EXACTO para summary_block: { "type": "summary_block", "content": "Contenido del resumen" }`,
+      key_concepts_block: basePrompt + `\n\nFormato EXACTO para key_concepts_block: { "type": "key_concepts_block", "concepts": ["concepto 1", "concepto 2", "concepto 3"] }`,
+      example: basePrompt + `\n\nFormato EXACTO para example: { "type": "example", "content": "Contenido del ejemplo" }`
+    };
+
+    const subjectContext = {
+      medicina: "Enfócate en terminología médica y casos clínicos.",
+      ingenieria: "Prioriza aplicaciones prácticas y ejemplos técnicos.",
+      derecho: "Destaca conceptos legales y jurisprudencia.",
+      ciencias: "Explica fenómenos científicos y metodologías.",
+      general: ""
+    };
+
+    return blockPrompts[blockType] + subjectContext[subject] || subjectContext.general;
+  }
+
+  // Crear bloque de fallback si el parsing falla
+  createFallbackBlock(blockType, content) {
+    const fallbacks = {
+      heading: { type: "heading", level: 2, content },
+      paragraph: { type: "paragraph", content },
+      list: { type: "list", style: "bulleted", items: [content] },
+      concept_block: { type: "concept_block", term: "Concepto", definition: content, examples: [] },
+      summary_block: { type: "summary_block", content },
+      key_concepts_block: { type: "key_concepts_block", concepts: [content] }
+    };
+    
+    return fallbacks[blockType] || { type: "paragraph", content };
   }
 
   // Convertir segments de transcripción a formato DocBlocksV2

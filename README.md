@@ -1,6 +1,41 @@
 # 📚 StudyScribe
 
-**App móvil para grabar clases y mejorarlas con IA** - La herramienta definitiva para estudiantes universitarios que quieren optimizar su aprendizaje con inteligencia artificial.
+**Sistema completo para procesamiento y mejora de transcripciones con IA** - Herramienta definitiva para estudiantes que quieren optimizar su aprendizaje con inteligencia artificial.
+
+## 🏗️ Nueva Estructura del Proyecto
+
+```
+studyscribe/
+├── backend/                 # API Node.js + Express
+│   ├── src/
+│   │   ├── routes/         # Endpoints de la API
+│   │   ├── services/       # Lógica de negocio
+│   │   ├── models/         # Modelos de datos
+│   │   └── config/         # Configuración
+│   ├── package.json
+│   └── .env
+├── frontend/                # Aplicación web React
+│   ├── src/
+│   │   ├── components/     # Componentes React
+│   │   ├── services/       # Clientes API
+│   │   └── App.tsx
+│   └── package.json
+├── mobile/                  # Aplicación móvil React Native
+│   └── StudyScribeMobile/
+│       ├── components/     # Componentes móviles
+│       ├── screens/        # Pantallas
+│       ├── services/       # Clientes API
+│       └── App.tsx
+├── shared/                  # Recursos compartidos
+│   ├── types/              # Tipos TypeScript
+│   └── utils/              # Utilidades comunes
+├── docs/                   # Documentación
+│   └── architecture/       # Diagramas de arquitectura
+├── archive/                # Archivos históricos/debug
+│   ├── debug/              # Scripts de debugging
+│   └── test/               # Archivos de prueba
+└── README.md
+```
 
 ## 🎯 Flujo Principal
 
