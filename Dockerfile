@@ -33,8 +33,5 @@ RUN chmod -R 755 uploads exports temp
 # Exponer el puerto
 EXPOSE 3001
 
-# Copiar archivo de entorno de producción
-COPY .env.production .env
-
 # Comando para iniciar la aplicación
-CMD ["sh", "-c", "cp .env.production .env && node src/server.js"]
+CMD ["node", "src/server.js"]
