@@ -38,15 +38,15 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// API Routes
-app.use('/api/transcription', transcriptionRoutes);
-console.log('Mounted transcription routes at /api/transcription');
-app.use('/api/auth', authRoutes);
-console.log('Mounted auth routes at /api/auth');
-app.use('/api/debug', debugRoutes);
-console.log('Mounted debug routes at /api/debug');
-app.use('/api/simple', simpleDebugRoutes);
-console.log('Mounted simple debug routes at /api/simple');
+// API Routes - Probando sin prefijo /api para diagnosticar Coolify
+app.use('/transcription', transcriptionRoutes);
+console.log('Mounted transcription routes at /transcription');
+app.use('/auth', authRoutes);
+console.log('Mounted auth routes at /auth');
+app.use('/debug', debugRoutes);
+console.log('Mounted debug routes at /debug');
+app.use('/simple', simpleDebugRoutes);
+console.log('Mounted simple debug routes at /simple');
 
 // Static file serving for exports
 app.use('/exports', express.static(path.join(__dirname, '..', 'exports')));
