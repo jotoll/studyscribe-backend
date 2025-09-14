@@ -2,7 +2,8 @@
 FROM node:18-alpine
 
 # Instalar Chromium y dependencias necesarias para html-pdf-node
-RUN apk add --no-cache \
+# Forzar reinstalación para evitar problemas de cache
+RUN apk add --no-cache --update \
     chromium \
     nss \
     freetype \
@@ -10,7 +11,9 @@ RUN apk add --no-cache \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
-    && rm -rf /var/cache/apk/*
+    && rm -rf /var/cache/apk/* \
+    && echo "Chromium version: $(chromium-browser --version || echo 'Chromium not available')" \
+    && which chromium-browser || echo "Chromium browser not found in PATH"
 
 # Establecer variables de entorno para Chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
