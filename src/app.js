@@ -35,25 +35,30 @@ app.get('/', (req, res) => {
   res.json({ message: 'StudyScribe API v1.0' });
 });
 
-// Health check
+// Health check (mantener compatibilidad con Coolify)
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// API Routes - Probando sin prefijo /api para diagnosticar Coolify
-app.use('/transcription', transcriptionRoutes);
-console.log('Mounted transcription routes at /transcription');
-app.use('/auth', authRoutes);
-console.log('Mounted auth routes at /auth');
-app.use('/debug', debugRoutes);
-console.log('Mounted debug routes at /debug');
-app.use('/simple', simpleDebugRoutes);
-console.log('Mounted simple debug routes at /simple');
-app.use('/diagnostic', deployDiagnosticRoutes);
-console.log('Mounted deploy diagnostic routes at /diagnostic');
+// Health check con prefijo /api
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// API Routes - Agregar prefijo /api para compatibilidad con la app móvil
+app.use('/api/transcription', transcriptionRoutes);
+console.log('Mounted transcription routes at /api/transcription');
+app.use('/api/auth', authRoutes);
+console.log('Mounted auth routes at /api/auth');
+app.use('/api/debug', debugRoutes);
+console.log('Mounted debug routes at /api/debug');
+app.use('/api/simple', simpleDebugRoutes);
+console.log('Mounted simple debug routes at /api/simple');
+app.use('/api/diagnostic', deployDiagnosticRoutes);
+console.log('Mounted deploy diagnostic routes at /api/diagnostic');
 
 // Static file serving for exports
-app.use('/exports', express.static(path.join(__dirname, '..', 'exports')));
-console.log('Mounted static exports directory at /exports');
+app.use('/api/exports', express.static(path.join(__dirname, '..', 'exports')));
+console.log('Mounted static exports directory at /api/exports');
 
 module.exports = app;
