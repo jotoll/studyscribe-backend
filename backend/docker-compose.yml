@@ -7,6 +7,8 @@ services:
       dockerfile: Dockerfile
       no_cache: true
     container_name: studyscribe-backend
+    environment:
+      - BUILD_TIMESTAMP=${CURRENT_TIMESTAMP}
     ports:
       - "3001:3001"
     volumes:
