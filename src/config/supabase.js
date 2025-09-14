@@ -174,5 +174,135 @@ module.exports = {
         subscription: subscriptionStatus
       }
     };
+  },
+
+  // Transcription management functions
+  async searchTranscriptions(filters = {}) {
+    if (!supabase) {
+      return { data: [], pagination: { page: 1, limit: 20, total: 0, total_pages: 0 } };
+    }
+
+    const {
+      search,
+      status,
+      is_favorite,
+      language,
+      page = 1,
+      limit = 20,
+      sort_by = 'created_at',
+      sort_order = 'desc'
+    } = filters;
+
+    const offset = (page - 1) * limit;
+
+    let query = supabase
+      .from('transcriptions')
+      .select('*', { count: 'exact' });
+
+    // Búsqueda de texto completo
+    if (search) {
+      query = query.textSearch('search_vector', search, {
+        type: 'websearch',
+        config: 'spanish'
+      });
+    }
+
+    // Filtros
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    if (is_favorite !== undefined) {
+      query = query.eq('is_favorite', is_favorite);
+    }
+
+    if (language) {
+      query = query.eq('language', language);
+    }
+
+    // Ordenamiento
+    query = query.order(sort_by, { ascending: sort_order === 'asc' });
+
+    // Paginación
+    query = query.range(offset, offset + limit - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error('Error searching transcriptions:', error);
+      throw error;
+    }
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total: count,
+        total_pages: Math.ceil(count / limit)
+      }
+    };
+  },
+
+  async countTranscriptions(filters = {}) {
+    if (!supabase) {
+      return 0;
+    }
+
+    const { status, is_favorite, language } = filters;
+
+    let query = supabase
+      .from('transcriptions')
+      .select('id', { count: 'exact' });
+
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    if (is_favorite !== undefined) {
+      query = query.eq('is_favorite', is_favorite);
+    }
+
+    if (language) {
+      query = query.eq('language', language);
+    }
+
+    const { count, error } = await query;
+
+    if (error) {
+      console.error('Error counting transcriptions:', error);
+      throw error;
+    }
+
+    return count;
+  },
+
+  async getTranscriptionFilters() {
+    if (!supabase) {
+      return { status: [], language: [] };
+    }
+
+    const { data: statusData, error: statusError } = await supabase
+      .from('transcriptions')
+      .select('status')
+      .not('status', 'is', null);
+
+    const { data: languageData, error: languageError } = await supabase
+      .from('transcriptions')
+      .select('language')
+      .not('language', 'is', null);
+
+    if (statusError || languageError) {
+      console.error('Error fetching filter options:', statusError || languageError);
+      throw statusError || languageError;
+    }
+
+    const statusOptions = [...new Set(statusData.map(item => item.status))];
+    const languageOptions = [...new Set(languageData.map(item => item.language))];
+
+    return {
+      status: statusOptions,
+      language: languageOptions
+    };
   }
 };
