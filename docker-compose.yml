@@ -1,8 +1,11 @@
-# Este archivo redirige al docker-compose.yml real en la carpeta backend
-# Coolify está configurado para buscar en la raíz, pero nuestro archivo está en /backend/
+# Archivo principal de docker-compose para Coolify
+# Redirige al servicio real definido en backend/docker-compose.yml
 
 version: '3.8'
 
-# Importar el docker-compose real desde la carpeta backend  
-include:
-  - path: ./backend/docker-compose.yml
+services:
+  # Servicio principal - referencia al servicio en backend
+  studyscribe-backend-v2:
+    extends:
+      file: ./backend/docker-compose.yml
+      service: studyscribe-backend-v2
