@@ -858,28 +858,59 @@ router.post('/export-pdf', async (req, res) => {
       ]
     };
 
-    // Generar PDF con manejo de errores mejorado
+    // Generar PDF con manejo de errores mejorado y timeout
     let pdfBuffer;
     try {
-      pdfBuffer = await htmlPdf.generatePdf({ content: htmlContent }, options);
+      console.log('🔄 Iniciando generación de PDF con timeout de 30 segundos...');
+      
+      // Agregar timeout para evitar que la aplicación se cuelgue
+      const pdfGenerationPromise = htmlPdf.generatePdf({ content: htmlContent }, options);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout: La generación de PDF tardó más de 30 segundos')), 30000)
+      );
+      
+      pdfBuffer = await Promise.race([pdfGenerationPromise, timeoutPromise]);
+      console.log('✅ PDF generado exitosamente');
+      
     } catch (pdfError) {
       console.error('❌ Error específico en generación de PDF:', pdfError.message);
       console.error('📋 Stack trace del error PDF:', pdfError.stack);
       
+      // Información adicional para debugging
+      console.log('🔍 Información del sistema para debugging:');
+      console.log('Node.js version:', process.version);
+      console.log('Platform:', process.platform);
+      console.log('Arch:', process.arch);
+      console.log('PUPPETEER_EXECUTABLE_PATH:', process.env.PUPPETEER_EXECUTABLE_PATH);
+      console.log('PUPPETEER_SKIP_CHROMIUM_DOWNLOAD:', process.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD);
+      
       // Intentar con configuración alternativa si falla
       try {
-        console.log('🔄 Intentando con configuración alternativa...');
+        console.log('🔄 Intentando con configuración alternativa mínima...');
         const fallbackOptions = {
           format: 'A4',
           margin: { top: '20mm', right: '15mm', bottom: '20mm', left: '15mm' },
           printBackground: true,
-          args: ['--no-sandbox', '--disable-setuid-sandbox']
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--headless', '--disable-gpu']
         };
-        pdfBuffer = await htmlPdf.generatePdf({ content: htmlContent }, fallbackOptions);
+        
+        const fallbackPromise = htmlPdf.generatePdf({ content: htmlContent }, fallbackOptions);
+        const fallbackTimeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout en configuración alternativa')), 15000)
+        );
+        
+        pdfBuffer = await Promise.race([fallbackPromise, fallbackTimeout]);
         console.log('✅ PDF generado con configuración alternativa');
+        
       } catch (fallbackError) {
         console.error('❌ Error también en configuración alternativa:', fallbackError.message);
-        throw fallbackError;
+        
+        // Si todo falla, devolver error específico con sugerencias
+        const errorMessage = fallbackError.message.includes('Timeout') 
+          ? 'La generación de PDF está tardando demasiado. El servidor puede no tener suficientes recursos.'
+          : `Error de Chromium: ${fallbackError.message}`;
+          
+        throw new Error(`No se pudo generar el PDF: ${errorMessage}`);
       }
     }
 
