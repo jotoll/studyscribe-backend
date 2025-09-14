@@ -22,6 +22,9 @@ WORKDIR /app
 # Copiar solo los archivos esenciales primero
 COPY package.json package-lock.json* ./
 
+# Forzar reinstalación limpia de dependencias
+RUN rm -rf node_modules && npm cache clean --force
+
 # Instalar dependencias de producción
 RUN npm ci --only=production --ignore-scripts
 
