@@ -28,6 +28,8 @@ const debugRoutes = require('./routes/debug-routes');
 console.log('Loading debug routes...');
 const simpleDebugRoutes = require('./routes/simple-debug');
 console.log('Loading simple debug routes...');
+const deployDiagnosticRoutes = require('./routes/deploy-diagnostic');
+console.log('Loading deploy diagnostic routes...');
 
 app.get('/', (req, res) => {
   res.json({ message: 'StudyScribe API v1.0' });
@@ -47,6 +49,8 @@ app.use('/debug', debugRoutes);
 console.log('Mounted debug routes at /debug');
 app.use('/simple', simpleDebugRoutes);
 console.log('Mounted simple debug routes at /simple');
+app.use('/diagnostic', deployDiagnosticRoutes);
+console.log('Mounted deploy diagnostic routes at /diagnostic');
 
 // Static file serving for exports
 app.use('/exports', express.static(path.join(__dirname, '..', 'exports')));
