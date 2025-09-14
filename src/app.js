@@ -22,6 +22,8 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Routes
 const transcriptionRoutes = require('./routes/transcription');
 console.log('Loading transcription routes...');
+const transcriptionManagementRoutes = require('./routes/transcription-management');
+console.log('Loading transcription management routes...');
 const authRoutes = require('./routes/auth');
 console.log('Loading auth routes...');
 const debugRoutes = require('./routes/debug-routes');
@@ -48,6 +50,8 @@ app.get('/api/health', (req, res) => {
 // API Routes - Agregar prefijo /api para compatibilidad con la app móvil
 app.use('/api/transcription', transcriptionRoutes);
 console.log('Mounted transcription routes at /api/transcription');
+app.use('/api/transcriptions', transcriptionManagementRoutes);
+console.log('Mounted transcription management routes at /api/transcriptions');
 app.use('/api/auth', authRoutes);
 console.log('Mounted auth routes at /api/auth');
 app.use('/api/debug', debugRoutes);

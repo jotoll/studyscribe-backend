@@ -174,5 +174,116 @@ module.exports = {
         subscription: subscriptionStatus
       }
     };
+  },
+
+  // Search transcriptions with filters and pagination
+  async searchTranscriptions({ userId, search, subject, favorite, sortBy = 'created_at', sortOrder = 'desc', limit = 20, offset = 0 }) {
+    if (!supabase) {
+      return { data: [], error: new Error('Supabase not configured') };
+    }
+
+    let query = supabase
+      .from('transcriptions')
+      .select('*')
+      .eq('user_id', userId);
+
+    // Apply search filter
+    if (search && search.trim()) {
+      query = query.textSearch('search_vector', `'${search.trim()}'`, {
+        type: 'websearch',
+        config: 'spanish'
+      });
+    }
+
+    // Apply subject filter
+    if (subject && subject !== 'all') {
+      query = query.eq('subject', subject);
+    }
+
+    // Apply favorite filter
+    if (favorite === 'true') {
+      query = query.eq('is_favorite', true);
+    } else if (favorite === 'false') {
+      query = query.eq('is_favorite', false);
+    }
+
+    // Apply sorting
+    query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+
+    // Apply pagination
+    query = query.range(offset, offset + limit - 1);
+
+    const { data, error } = await query;
+
+    return { data, error };
+  },
+
+  // Count transcriptions with filters
+  async countTranscriptions({ userId, search, subject, favorite }) {
+    if (!supabase) {
+      return { count: 0, error: new Error('Supabase not configured') };
+    }
+
+    let query = supabase
+      .from('transcriptions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    // Apply search filter
+    if (search && search.trim()) {
+      query = query.textSearch('search_vector', `'${search.trim()}'`, {
+        type: 'websearch',
+        config: 'spanish'
+      });
+    }
+
+    // Apply subject filter
+    if (subject && subject !== 'all') {
+      query = query.eq('subject', subject);
+    }
+
+    // Apply favorite filter
+    if (favorite === 'true') {
+      query = query.eq('is_favorite', true);
+    } else if (favorite === 'false') {
+      query = query.eq('is_favorite', false);
+    }
+
+    const { count, error } = await query;
+
+    return { count, error };
+  },
+
+  // Get available filters for user transcriptions
+  async getTranscriptionFilters(userId) {
+    if (!supabase) {
+      return { 
+        subjects: [], 
+        error: new Error('Supabase not configured') 
+      };
+    }
+
+    // Get distinct subjects
+    const { data: subjectsData, error: subjectsError } = await supabase
+      .from('transcriptions')
+      .select('subject')
+      .eq('user_id', userId)
+      .not('subject', 'is', null)
+      .order('subject');
+
+    const subjects = [...new Set(subjectsData?.map(item => item.subject).filter(Boolean) || [])];
+
+    // Get favorite count
+    const { count: favoriteCount, error: favoriteError } = await supabase
+      .from('transcriptions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('is_favorite', true);
+
+    return {
+      subjects,
+      favoriteCount: favoriteCount || 0,
+      error: subjectsError || favoriteError
+    };
   }
 };
