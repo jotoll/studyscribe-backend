@@ -954,8 +954,11 @@ router.post('/export-pdf', async (req, res) => {
 
     // Devolver URLs para descargar - usar IP de red local para acceso móvil
     const baseUrl = process.env.BASE_URL || 'http://192.168.1.140:3001';
-    const pdfUrl = `${baseUrl}/exports/${filename}`;
+    const pdfUrl = `${baseUrl}/api/exports/${filename}`;
     const downloadUrl = `${baseUrl}/api/transcription/download-pdf/${filename}`;
+    
+    console.log(`📄 PDF URL generada: ${pdfUrl}`);
+    console.log(`📥 Download URL: ${downloadUrl}`);
 
     res.json({
       success: true,
