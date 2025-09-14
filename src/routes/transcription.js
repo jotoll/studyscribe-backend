@@ -834,7 +834,7 @@ router.post('/export-pdf', async (req, res) => {
       </html>
     `;
 
-    // Opciones para el PDF
+    // Opciones para el PDF con configuración específica para Chromium en Alpine
     const options = {
       format: 'A4',
       margin: {
@@ -844,11 +844,44 @@ router.post('/export-pdf', async (req, res) => {
         left: '15mm'
       },
       printBackground: true,
-      preferCSSPageSize: true
+      preferCSSPageSize: true,
+      // Configuración específica para Puppeteer/Chromium en entornos headless
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ]
     };
 
-    // Generar PDF
-    const pdfBuffer = await htmlPdf.generatePdf({ content: htmlContent }, options);
+    // Generar PDF con manejo de errores mejorado
+    let pdfBuffer;
+    try {
+      pdfBuffer = await htmlPdf.generatePdf({ content: htmlContent }, options);
+    } catch (pdfError) {
+      console.error('❌ Error específico en generación de PDF:', pdfError.message);
+      console.error('📋 Stack trace del error PDF:', pdfError.stack);
+      
+      // Intentar con configuración alternativa si falla
+      try {
+        console.log('🔄 Intentando con configuración alternativa...');
+        const fallbackOptions = {
+          format: 'A4',
+          margin: { top: '20mm', right: '15mm', bottom: '20mm', left: '15mm' },
+          printBackground: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox']
+        };
+        pdfBuffer = await htmlPdf.generatePdf({ content: htmlContent }, fallbackOptions);
+        console.log('✅ PDF generado con configuración alternativa');
+      } catch (fallbackError) {
+        console.error('❌ Error también en configuración alternativa:', fallbackError.message);
+        throw fallbackError;
+      }
+    }
 
     // Crear nombre único para el archivo
     const filename = `studyscribe_${Date.now()}.pdf`;
