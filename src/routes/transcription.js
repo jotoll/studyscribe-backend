@@ -918,14 +918,39 @@ router.post('/export-pdf', async (req, res) => {
     const filename = `studyscribe_${Date.now()}.pdf`;
     const filePath = path.join(__dirname, '..', '..', 'exports', filename);
 
-    // Asegurar que existe el directorio exports
+    // Asegurar que existe el directorio exports con permisos
     const exportsDir = path.join(__dirname, '..', '..', 'exports');
     if (!fs.existsSync(exportsDir)) {
+      console.log('📁 Creando directorio exports...');
       fs.mkdirSync(exportsDir, { recursive: true });
     }
+    
+    // Verificar permisos del directorio
+    try {
+      const stats = fs.statSync(exportsDir);
+      console.log(`📁 Permisos del directorio exports: ${stats.mode.toString(8)}`);
+    } catch (error) {
+      console.error('❌ Error verificando permisos del directorio:', error.message);
+    }
 
-    // Guardar archivo
-    fs.writeFileSync(filePath, pdfBuffer);
+    // Guardar archivo con verificación
+    try {
+      console.log(`💾 Guardando PDF en: ${filePath}`);
+      fs.writeFileSync(filePath, pdfBuffer);
+      
+      // Verificar que el archivo se guardó correctamente
+      if (fs.existsSync(filePath)) {
+        const fileStats = fs.statSync(filePath);
+        console.log(`✅ PDF guardado exitosamente. Tamaño: ${fileStats.size} bytes`);
+      } else {
+        console.error('❌ Error: El archivo PDF no se creó después de writeFileSync');
+        throw new Error('No se pudo guardar el archivo PDF en el servidor');
+      }
+    } catch (writeError) {
+      console.error('❌ Error guardando archivo PDF:', writeError.message);
+      console.error('📋 Stack trace del error de escritura:', writeError.stack);
+      throw new Error(`Error al guardar el PDF: ${writeError.message}`);
+    }
 
     // Devolver URLs para descargar - usar IP de red local para acceso móvil
     const baseUrl = process.env.BASE_URL || 'http://192.168.1.140:3001';
