@@ -22,6 +22,8 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Routes
 const transcriptionRoutes = require('./routes/transcription');
 console.log('Loading transcription routes...');
+const transcriptionManagementRoutes = require('./routes/transcription-management');
+console.log('Loading transcription management routes...');
 const authRoutes = require('./routes/auth');
 console.log('Loading auth routes...');
 const debugRoutes = require('./routes/debug-routes');
@@ -56,6 +58,8 @@ app.use('/api/simple', simpleDebugRoutes);
 console.log('Mounted simple debug routes at /api/simple');
 app.use('/api/diagnostic', deployDiagnosticRoutes);
 console.log('Mounted deploy diagnostic routes at /api/diagnostic');
+app.use('/api/transcriptions', transcriptionManagementRoutes);
+console.log('Mounted transcription management routes at /api/transcriptions');
 
 // Static file serving for exports
 app.use('/api/exports', express.static(path.join(__dirname, '..', 'exports')));
