@@ -118,7 +118,26 @@ router.post('/upload', upload.single('audio'), async (req, res) => {
       responseData.data.doc_blocks = docBlocks;
     }
     
-    res.json(responseData);
+    // Log response size for debugging
+    const responseJson = JSON.stringify(responseData);
+    console.log(`📊 Response size: ${responseJson.length} characters (~${Math.round(responseJson.length / 1024)}KB)`);
+    
+    // Set timeout and handle potential network errors
+    res.setTimeout(120000, () => {
+      console.warn('⚠️ Response timeout after 120 seconds');
+    });
+    
+    try {
+      res.json(responseData);
+      console.log('✅ Response sent successfully');
+    } catch (sendError) {
+      console.error('❌ Error sending response:', sendError);
+      // Try to send a simpler error response
+      res.status(500).json({
+        error: 'Error sending response',
+        details: 'Network error occurred while sending response'
+      });
+    }
 
   } catch (error) {
     console.error('Error en transcripción:', error);
@@ -815,7 +834,7 @@ router.post('/export-pdf', async (req, res) => {
       </html>
     `;
 
-    // Opciones para el PDF
+    // Opciones para el PDF - Configurar para usar Chromium en Alpine
     const options = {
       format: 'A4',
       margin: {
@@ -825,7 +844,18 @@ router.post('/export-pdf', async (req, res) => {
         left: '15mm'
       },
       printBackground: true,
-      preferCSSPageSize: true
+      preferCSSPageSize: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser'
     };
 
     // Generar PDF
