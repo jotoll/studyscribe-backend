@@ -1,5 +1,5 @@
 const express = require('express');
-const { supabase } = require('../config/supabase');
+const { supabase, searchTranscriptions, countTranscriptions, getTranscriptionFilters } = require('../config/supabase');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -20,7 +20,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
     const offset = (page - 1) * limit;
 
-    const { data, error } = await supabase.searchTranscriptions({
+    const { data, error } = await searchTranscriptions({
       userId,
       search,
       subject,
@@ -40,7 +40,7 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 
     // Obtener conteo total para paginación
-    const { count, error: countError } = await supabase.countTranscriptions({
+    const { count, error: countError } = await countTranscriptions({
       userId,
       search,
       subject,
@@ -78,7 +78,7 @@ router.get('/filters', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const { data, error } = await supabase.getTranscriptionFilters(userId);
+    const { data, error } = await getTranscriptionFilters(userId);
 
     if (error) {
       console.error('Error obteniendo filtros:', error);
@@ -108,16 +108,16 @@ router.get('/stats', authenticateToken, async (req, res) => {
     const userId = req.user.id;
 
     // Obtener conteo total
-    const { count: totalCount } = await supabase.countTranscriptions({ userId });
+    const { count: totalCount } = await countTranscriptions({ userId });
     
     // Obtener conteo de favoritos
-    const { count: favoriteCount } = await supabase.countTranscriptions({ 
+    const { count: favoriteCount } = await countTranscriptions({ 
       userId, 
       favorite: 'true' 
     });
 
     // Obtener conteo por materias
-    const { data: subjectCounts } = await supabase.getTranscriptionFilters(userId);
+    const { data: subjectCounts } = await getTranscriptionFilters(userId);
 
     res.json({
       success: true,
