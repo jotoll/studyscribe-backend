@@ -305,9 +305,6 @@ class TranscriptionService {
         subject: transcriptionData.subject || 'general',
         original_text: transcriptionData.original_text,
         enhanced_text: JSON.stringify(transcriptionData.enhanced_text),
-        audio_file_url: fileInfo?.url || null,
-        audio_duration: fileInfo?.duration || null,
-        file_size: fileInfo?.size || null,
         confidence_score: transcriptionData.confidence || 0.8,
         language: transcriptionData.language || 'es',
         processing_status: 'completed'

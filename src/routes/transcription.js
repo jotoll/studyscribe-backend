@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const transcriptionService = require('../services/transcriptionService');
 const htmlPdf = require('html-pdf-node');
 const fs = require('fs');
+const { authenticateToken } = require('../middleware/auth');
 
 console.log('🔄 Loading transcription routes with debug...');
 
@@ -52,7 +53,7 @@ const upload = multer({
 });
 
 // POST /api/transcription/upload - Subir y transcribir audio
-router.post('/upload', upload.single('audio'), async (req, res) => {
+router.post('/upload', authenticateToken, upload.single('audio'), async (req, res) => {
   try {
     console.log('📥 Upload endpoint reached');
     console.log('📁 File:', req.file ? req.file.originalname : 'none');
@@ -72,6 +73,45 @@ router.post('/upload', upload.single('audio'), async (req, res) => {
       transcription.text, 
       subject
     );
+
+    // 3. Guardar transcripción en Supabase
+    const userId = req.user.id;
+    const fileInfo = {
+      url: req.file.filename,
+      duration: transcription.duration,
+      size: req.file.size
+    };
+    
+    try {
+      const saveResult = await transcriptionService.saveTranscriptionToDB(
+        enhanced,
+        userId,
+        fileInfo
+      );
+      
+      console.log('✅ Transcripción guardada en Supabase con ID:', saveResult.id);
+      
+      // Si se procesó con chunking, trackear uso adicional
+      if (enhanced.was_chunked) {
+        await transcriptionService.trackUserUsage(userId, {
+          transcription_count: enhanced.chunk_count || 1,
+          audio_minutes: Math.ceil(transcription.duration / 60)
+        });
+      } else {
+        await transcriptionService.trackUserUsage(userId, {
+          transcription_count: 1,
+          audio_minutes: Math.ceil(transcription.duration / 60)
+        });
+      }
+      
+    } catch (saveError) {
+      console.error('❌ ERROR CRÍTICO guardando en Supabase:', saveError.message);
+      console.error('📋 Stack trace:', saveError.stack);
+      console.error('🔍 Detalles del error:', saveError);
+      
+      // Ahora sí fallar la petición para que el usuario sepa que no se guardó
+      throw new Error(`Error guardando transcripción en la base de datos: ${saveError.message}`);
+    }
 
     // Debug: verificar parámetros
     console.log('🔍 Body params:', req.body);
@@ -975,6 +1015,65 @@ router.post('/export-pdf', async (req, res) => {
     res.status(500).json({ 
       error: 'Error generando el PDF',
       details: error.message 
+    });
+  }
+});
+
+// POST /api/transcription/test-save - Endpoint de prueba sin autenticación para guardar en Supabase
+router.post('/test-save', async (req, res) => {
+  try {
+    console.log('🧪 Endpoint de prueba de guardado en Supabase');
+    
+    // Datos de prueba
+    const testData = {
+      enhanced_text: {
+        title: "Transcripción de prueba",
+        sections: [
+          {
+            type: "heading",
+            level: 1,
+            content: "Título de prueba"
+          },
+          {
+            type: "paragraph",
+            content: "Este es un párrafo de prueba para verificar el guardado en Supabase."
+          }
+        ]
+      },
+      original_text: "Texto original de prueba",
+      subject: "matematicas",
+      processed_at: new Date().toISOString()
+    };
+
+    // No pasar información de archivo ya que no queremos almacenar datos de audio
+    // Usar un UUID de prueba válido
+    const testUserId = '123e4567-e89b-12d3-a456-426614174000';
+    
+    console.log('📝 Intentando guardar en Supabase...');
+    const saveResult = await transcriptionService.saveTranscriptionToDB(
+      testData,
+      testUserId,
+      null  // No pasar fileInfo
+    );
+    
+    console.log('✅ Guardado exitoso:', saveResult);
+    
+    res.json({
+      success: true,
+      message: 'Transcripción guardada correctamente en Supabase',
+      data: saveResult
+    });
+
+  } catch (error) {
+    console.error('❌ ERROR en test-save:', error.message);
+    console.error('📋 Stack trace:', error.stack);
+    console.error('🔍 Detalles completos:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Error guardando en Supabase',
+      message: error.message,
+      details: error
     });
   }
 });
