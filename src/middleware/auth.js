@@ -8,6 +8,17 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
+  // Skip authentication for local development
+  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+    // Create a mock user for local development
+    req.user = {
+      id: 'local-dev-user-id',
+      email: 'dev@localhost',
+      name: 'Local Development User'
+    };
+    return next();
+  }
+
   if (!token) {
     return res.status(401).json({ 
       error: 'Token de acceso requerido',
