@@ -57,7 +57,8 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = authAPI.getToken();
-    if (token) {
+    // Skip authentication for local development - don't send token for local backend
+    if (token && !(API_BASE_URL.includes('localhost') || API_BASE_URL.includes('192.168'))) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
