@@ -1,0 +1,42 @@
+{
+  "title": "Ejemplo de Transcripción Mejorada",
+  "summary": "Este es un resumen de ejemplo de una transcripción mejorada por IA que contiene varios tipos de bloques de contenido.",
+  "key_concepts": [
+    "Concepto clave 1",
+    "Concepto clave 2", 
+    "Concepto clave 3"
+  ],
+  "sections": [
+    {
+      "type": "heading",
+      "level": 1,
+      "content": "Introducción al Tema"
+    },
+    {
+      "type": "paragraph", 
+      "content": "Este es un párrafo de ejemplo que contiene información importante sobre el tema que se está discutiendo. La transcripción mejorada por IA organiza el contenido en bloques lógicos para facilitar su comprensión y estudio."
+    },
+    {
+      "type": "concept_block",
+      "term": "Término importante",
+      "definition": "Definición detallada del término importante que se está explicando en esta sección.",
+      "examples": [
+        "Ejemplo práctico 1 del término",
+        "Ejemplo práctico 2 del término"
+      ]
+    },
+    {
+      "type": "list",
+      "style": "bulleted",
+      "items": [
+        "Elemento de lista 1",
+        "Elemento de lista 2",
+        "Elemento de lista 3"
+      ]
+    },
+    {
+      "type": "summary_block",
+      "content": "Resumen de los puntos clave discutidos en esta sección para facilitar el repaso y estudio."
+    }
+  ]
+}
