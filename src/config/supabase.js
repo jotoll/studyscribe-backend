@@ -6,7 +6,7 @@ const path = require('path');
 let supabaseUrl, supabaseKey;
 
 try {
-  const envPath = path.join(__dirname, '..', '..', 'backend', '.env');
+  const envPath = path.join(__dirname, '..', '..', '.env');
   const envContent = fs.readFileSync(envPath, 'utf8');
 
   const urlMatch = envContent.match(/SUPABASE_URL=(.+)/);
