@@ -1,0 +1,39 @@
+# Configuración optimizada para Coolify
+# Con health check funcional para Alpine Linux
+
+version: '3.8'
+
+services:
+  dicttr-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - BASE_URL=https://studyscribe.zingyzong.com
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - ALLOWED_ORIGINS=*
+    volumes:
+      - uploads:/app/uploads
+      - exports:/app/exports
+      - temp:/app/temp
+    restart: unless-stopped
+    # Health check que funciona en Alpine Linux
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  uploads:
+  exports:
+  temp:

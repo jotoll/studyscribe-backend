@@ -1,7 +1,7 @@
 {
   "name": "dicttr-backend",
   "description": "Dicttr Backend API",
-  "dockerCompose": "docker-compose.yml",
+  "dockerCompose": "docker-compose.coolify.yml",
   "environment": [
     {
       "name": "NODE_ENV",
