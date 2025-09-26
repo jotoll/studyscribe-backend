@@ -6,7 +6,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 // JWT Secret - debería estar en variables de entorno
-const JWT_SECRET = process.env.JWT_SECRET || 'studyscribe_secret_key_2024';
+const JWT_SECRET = process.env.JWT_SECRET || 'dicttr_secret_key_2024';
 
 // OAuth de Supabase
 router.get('/oauth/url', (req, res) => {

@@ -30,7 +30,7 @@ module.exports = {
         email,
         name,
         metadata: {
-          created_via: 'studyscribe_api'
+          created_via: 'dicttr_api'
         }
       });
 

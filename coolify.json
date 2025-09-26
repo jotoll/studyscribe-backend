@@ -1,6 +1,6 @@
 {
-  "name": "studyscribe-backend",
-  "description": "StudyScribe Backend API",
+  "name": "dicttr-backend",
+  "description": "Dicttr Backend API",
   "dockerCompose": "docker-compose.yml",
   "environment": [
     {

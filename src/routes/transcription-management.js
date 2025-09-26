@@ -1,5 +1,5 @@
 const express = require('express');
-const { supabase, searchTranscriptions, countTranscriptions, getTranscriptionFilters } = require('../config/supabase');
+const { supabase, searchTranscriptions, countTranscriptions, getTranscriptionFilters, getTranscriptionDates } = require('../config/supabase');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -14,17 +14,22 @@ router.get('/', authenticateToken, async (req, res) => {
       search = '', 
       subject = '', 
       favorite = '',
+      tags = '',
       sortBy = 'created_at',
       sortOrder = 'desc'
     } = req.query;
 
     const offset = (page - 1) * limit;
 
+    // Convertir tags de string a array si está presente
+    const tagIds = tags ? tags.split(',') : [];
+
     const { data, error } = await searchTranscriptions({
       userId,
       search,
       subject,
       favorite,
+      tags: tagIds,
       sortBy,
       sortOrder,
       limit: parseInt(limit),
@@ -44,7 +49,8 @@ router.get('/', authenticateToken, async (req, res) => {
       userId,
       search,
       subject,
-      favorite
+      favorite,
+      tags: tagIds
     });
 
     if (countError) {
@@ -78,23 +84,54 @@ router.get('/filters', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const { data, error } = await getTranscriptionFilters(userId);
+    const result = await getTranscriptionFilters(userId);
 
-    if (error) {
-      console.error('Error obteniendo filtros:', error);
-      return res.status(500).json({ 
+    if (result.error) {
+      console.error('Error obteniendo filtros:', result.error);
+      return res.status(500).json({
         error: 'Error al obtener filtros',
-        details: error.message 
+        details: result.error.message
       });
     }
 
     res.json({
       success: true,
-      data
+      data: result
     });
 
   } catch (error) {
     console.error('Error obteniendo filtros:', error);
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      details: error.message 
+    });
+  }
+});
+
+// GET /api/transcriptions/dates - Obtener fechas con transcripciones
+router.get('/dates', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const { dates, error } = await getTranscriptionDates(userId);
+
+    if (error) {
+      console.error('Error obteniendo fechas:', error);
+      return res.status(500).json({
+        error: 'Error al obtener fechas con transcripciones',
+        details: error.message
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        dates: dates || []
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo fechas:', error);
     res.status(500).json({ 
       error: 'Error interno del servidor',
       details: error.message 
@@ -117,7 +154,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
     });
 
     // Obtener conteo por materias
-    const { data: subjectCounts } = await getTranscriptionFilters(userId);
+    const subjectCounts = await getTranscriptionFilters(userId);
 
     res.json({
       success: true,
@@ -289,6 +326,212 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('Error eliminando transcripción:', error);
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      details: error.message 
+    });
+  }
+});
+
+// GET /api/transcriptions/:id/tags - Obtener etiquetas de una transcripción
+router.get('/:id/tags', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Verificar que la transcripción existe y pertenece al usuario
+    const { data: transcription, error: transcriptionError } = await supabase
+      .from('transcriptions')
+      .select('id')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single();
+
+    if (transcriptionError || !transcription) {
+      return res.status(404).json({ 
+        error: 'Transcripción no encontrada' 
+      });
+    }
+
+    // Obtener las etiquetas de esta transcripción
+    const { data, error } = await supabase
+      .from('transcription_tags')
+      .select(`
+        tags (
+          id,
+          name,
+          color,
+          created_at,
+          updated_at
+        )
+      `)
+      .eq('transcription_id', id)
+      .order('name', { foreignTable: 'tags', ascending: true });
+
+    if (error) {
+      console.error('Error obteniendo etiquetas de transcripción:', error);
+      return res.status(500).json({ 
+        error: 'Error al obtener las etiquetas de la transcripción',
+        details: error.message 
+      });
+    }
+
+    // Extraer las etiquetas de los resultados
+    const tags = data?.map(item => item.tags).filter(tag => tag !== null) || [];
+
+    res.json({
+      success: true,
+      data: {
+        tags
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo etiquetas de transcripción:', error);
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      details: error.message 
+    });
+  }
+});
+
+// POST /api/transcriptions/:id/tags/:tagId - Asignar etiqueta a transcripción
+router.post('/:id/tags/:tagId', authenticateToken, async (req, res) => {
+  try {
+    const { id, tagId } = req.params;
+    const userId = req.user.id;
+
+    // Verificar que la transcripción existe y pertenece al usuario
+    const { data: transcription, error: transcriptionError } = await supabase
+      .from('transcriptions')
+      .select('id')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single();
+
+    if (transcriptionError || !transcription) {
+      return res.status(404).json({ 
+        error: 'Transcripción no encontrada' 
+      });
+    }
+
+    // Verificar que la etiqueta existe y pertenece al usuario
+    const { data: tag, error: tagError } = await supabase
+      .from('tags')
+      .select('id')
+      .eq('id', tagId)
+      .eq('user_id', userId)
+      .single();
+
+    if (tagError || !tag) {
+      return res.status(404).json({ 
+        error: 'Etiqueta no encontrada' 
+      });
+    }
+
+    // Verificar si ya existe la relación
+    const { data: existingRelation } = await supabase
+      .from('transcription_tags')
+      .select('id')
+      .eq('transcription_id', id)
+      .eq('tag_id', tagId)
+      .single();
+
+    if (existingRelation) {
+      return res.status(400).json({ 
+        error: 'La etiqueta ya está asignada a esta transcripción' 
+      });
+    }
+
+    // Crear la relación
+    const { data, error } = await supabase
+      .from('transcription_tags')
+      .insert({
+        transcription_id: id,
+        tag_id: tagId
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error añadiendo etiqueta a transcripción:', error);
+      return res.status(500).json({ 
+        error: 'Error al añadir la etiqueta a la transcripción',
+        details: error.message 
+      });
+    }
+
+    res.json({
+      success: true,
+      data,
+      message: 'Etiqueta añadida correctamente'
+    });
+
+  } catch (error) {
+    console.error('Error añadiendo etiqueta a transcripción:', error);
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      details: error.message 
+    });
+  }
+});
+
+// DELETE /api/transcriptions/:id/tags/:tagId - Quitar etiqueta de transcripción
+router.delete('/:id/tags/:tagId', authenticateToken, async (req, res) => {
+  try {
+    const { id, tagId } = req.params;
+    const userId = req.user.id;
+
+    // Verificar que la transcripción existe y pertenece al usuario
+    const { data: transcription, error: transcriptionError } = await supabase
+      .from('transcriptions')
+      .select('id')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single();
+
+    if (transcriptionError || !transcription) {
+      return res.status(404).json({ 
+        error: 'Transcripción no encontrada' 
+      });
+    }
+
+    // Verificar que la etiqueta existe y pertenece al usuario
+    const { data: tag, error: tagError } = await supabase
+      .from('tags')
+      .select('id')
+      .eq('id', tagId)
+      .eq('user_id', userId)
+      .single();
+
+    if (tagError || !tag) {
+      return res.status(404).json({ 
+        error: 'Etiqueta no encontrada' 
+      });
+    }
+
+    // Eliminar la relación
+    const { error } = await supabase
+      .from('transcription_tags')
+      .delete()
+      .eq('transcription_id', id)
+      .eq('tag_id', tagId);
+
+    if (error) {
+      console.error('Error quitando etiqueta de transcripción:', error);
+      return res.status(500).json({ 
+        error: 'Error al quitar la etiqueta de la transcripción',
+        details: error.message 
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Etiqueta quitada correctamente'
+    });
+
+  } catch (error) {
+    console.error('Error quitando etiqueta de transcripción:', error);
     res.status(500).json({ 
       error: 'Error interno del servidor',
       details: error.message 

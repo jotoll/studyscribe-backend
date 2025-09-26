@@ -52,8 +52,8 @@ const upload = multer({
   }
 });
 
-// POST /api/transcription/upload - Subir y transcribir audio
-router.post('/upload', authenticateToken, upload.single('audio'), async (req, res) => {
+// POST /api/transcription/upload-file - Subir y transcribir audio (renombrado para evitar conflictos)
+router.post('/upload-file', authenticateToken, upload.single('audio'), async (req, res) => {
   try {
     console.log('📥 Upload endpoint reached');
     console.log('📁 File:', req.file ? req.file.originalname : 'none');
@@ -63,7 +63,7 @@ router.post('/upload', authenticateToken, upload.single('audio'), async (req, re
       return res.status(400).json({ error: 'No se proporcionó archivo de audio' });
     }
 
-    const { subject = 'general', format } = req.body;
+    const { subject = null, format } = req.body;
 
     // 1. Transcribir audio
     const transcription = await transcriptionService.transcribeAudio(req.file.path);
@@ -75,15 +75,17 @@ router.post('/upload', authenticateToken, upload.single('audio'), async (req, re
     );
 
     // 3. Guardar transcripción en Supabase
-    const userId = req.user.id;
+    // For development/testing, create a mock user ID with valid UUID format
+    const userId = req.user ? req.user.id : '123e4567-e89b-12d3-a456-426614174000';
     const fileInfo = {
       url: req.file.filename,
       duration: transcription.duration,
       size: req.file.size
     };
     
+    let saveResult;
     try {
-      const saveResult = await transcriptionService.saveTranscriptionToDB(
+      saveResult = await transcriptionService.saveTranscriptionToDB(
         enhanced,
         userId,
         fileInfo
@@ -131,6 +133,7 @@ router.post('/upload', authenticateToken, upload.single('audio'), async (req, re
     const responseData = {
       success: true,
       data: {
+        id: saveResult.id, // Incluir el ID de la transcripción recién creada
         file_info: {
           filename: req.file.filename,
           original_name: req.file.originalname,
@@ -138,6 +141,7 @@ router.post('/upload', authenticateToken, upload.single('audio'), async (req, re
           duration: transcription.duration
         },
         transcription: {
+          id: saveResult.id, // También incluir en el objeto transcription
           original: transcription.text,
           enhanced: enhanced.enhanced_text,
           confidence: transcription.confidence
@@ -191,7 +195,7 @@ router.post('/upload', authenticateToken, upload.single('audio'), async (req, re
 // POST /api/transcription/enhance - Mejorar texto existente
 router.post('/enhance', async (req, res) => {
   try {
-    const { text, subject = 'general' } = req.body;
+    const { text, subject = null } = req.body;
 
     if (!text) {
       return res.status(400).json({ error: 'Se requiere el texto a mejorar' });
@@ -248,7 +252,7 @@ router.post('/generate-material', async (req, res) => {
 // POST /api/transcription/flowchart - Generar flujograma (endpoint separado)
 router.post('/flowchart', async (req, res) => {
   try {
-    const { enhanced_text, subject = 'general' } = req.body;
+    const { enhanced_text, subject } = req.body;
 
     if (!enhanced_text) {
       return res.status(400).json({ error: 'Se requiere el texto mejorado' });
@@ -273,7 +277,7 @@ router.post('/flowchart', async (req, res) => {
 // POST /api/transcription/expand - Expandir texto con IA (para editor de bloques)
 router.post('/expand', async (req, res) => {
   try {
-    const { text, subject = 'general' } = req.body;
+    const { text, subject = null } = req.body;
 
     if (!text) {
       return res.status(400).json({ error: 'Se requiere el texto a expandir' });
@@ -538,7 +542,7 @@ router.post('/export-pdf', async (req, res) => {
       <html>
       <head>
         <meta charset="UTF-8">
-        <title>StudyScribe - Transcripción Mejorada</title>
+        <title>Dicttr - Transcripción Mejorada</title>
         <style>
           /* Variables de colores para consistencia con la app */
           :root {
@@ -955,7 +959,7 @@ router.post('/export-pdf', async (req, res) => {
     }
 
     // Crear nombre único para el archivo
-    const filename = `studyscribe_${Date.now()}.pdf`;
+    const filename = `dicttr_${Date.now()}.pdf`;
     const filePath = path.join(__dirname, '..', '..', 'exports', filename);
 
     // Asegurar que existe el directorio exports con permisos
@@ -1015,6 +1019,40 @@ router.post('/export-pdf', async (req, res) => {
     res.status(500).json({ 
       error: 'Error generando el PDF',
       details: error.message 
+    });
+  }
+});
+
+// POST /api/transcription/test-upload - Endpoint de prueba sin autenticación para upload
+router.post('/test-upload', upload.single('audio'), async (req, res) => {
+  try {
+    console.log('🧪 Endpoint de prueba de upload sin autenticación');
+    console.log('📁 File:', req.file ? req.file.originalname : 'none');
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se proporcionó archivo de audio' });
+    }
+
+    // For development/testing, create a mock user ID
+    const userId = 'local-dev-user-id';
+    
+    res.json({
+      success: true,
+      message: 'Upload de prueba exitoso',
+      data: {
+        filename: req.file.filename,
+        original_name: req.file.originalname,
+        size: req.file.size,
+        userId: userId
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ ERROR en test-upload:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Error en test upload',
+      message: error.message
     });
   }
 });
@@ -1089,7 +1127,7 @@ router.post('/generate-block', async (req, res) => {
       subject: req.body.subject
     });
     
-    const { block_type, user_prompt, context_text, subject = 'general' } = req.body;
+    const { block_type, user_prompt, context_text, subject = null } = req.body;
 
     if (!block_type || !user_prompt || !context_text) {
       console.error('❌ Faltan parámetros requeridos');

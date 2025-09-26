@@ -4,7 +4,7 @@ require('dotenv').config();
 const { supabase } = require('../src/config/supabase');
 
 async function initializeDatabase() {
-  console.log('🚀 Inicializando base de datos StudyScribe...');
+  console.log('🚀 Inicializando base de datos Dicttr...');
 
   if (!supabase) {
     console.log('⚠️  Supabase no configurado. Ejecutando en modo local.');
@@ -35,7 +35,7 @@ async function initializeDatabase() {
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         user_id UUID REFERENCES users(id) ON DELETE CASCADE,
         title TEXT NOT NULL,
-        subject TEXT DEFAULT 'general',
+        subject TEXT,
         original_text TEXT,
         enhanced_text TEXT,
         audio_file_url TEXT,

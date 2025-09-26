@@ -26,15 +26,13 @@ const transcriptionManagementRoutes = require('./routes/transcription-management
 console.log('Loading transcription management routes...');
 const authRoutes = require('./routes/auth');
 console.log('Loading auth routes...');
-const debugRoutes = require('./routes/debug-routes');
-console.log('Loading debug routes...');
-const simpleDebugRoutes = require('./routes/simple-debug');
-console.log('Loading simple debug routes...');
-const deployDiagnosticRoutes = require('./routes/deploy-diagnostic');
-console.log('Loading deploy diagnostic routes...');
+const folderRoutes = require('./routes/folders');
+console.log('Loading folder routes...');
+const tagRoutes = require('./routes/tags');
+console.log('Loading tag routes...');
 
 app.get('/', (req, res) => {
-  res.json({ message: 'StudyScribe API v1.0' });
+  res.json({ message: 'Dicttr API v1.0' });
 });
 
 // Health check (mantener compatibilidad con Coolify)
@@ -48,18 +46,16 @@ app.get('/api/health', (req, res) => {
 });
 
 // API Routes - Agregar prefijo /api para compatibilidad con la app móvil
+app.use('/api/tags', tagRoutes);
+console.log('Mounted tag routes at /api/tags');
+app.use('/api/folders', folderRoutes);
+console.log('Mounted folder routes at /api/folders');
 app.use('/api/transcription', transcriptionRoutes);
 console.log('Mounted transcription routes at /api/transcription');
 app.use('/api/transcriptions', transcriptionManagementRoutes);
 console.log('Mounted transcription management routes at /api/transcriptions');
 app.use('/api/auth', authRoutes);
 console.log('Mounted auth routes at /api/auth');
-app.use('/api/debug', debugRoutes);
-console.log('Mounted debug routes at /api/debug');
-app.use('/api/simple', simpleDebugRoutes);
-console.log('Mounted simple debug routes at /api/simple');
-app.use('/api/diagnostic', deployDiagnosticRoutes);
-console.log('Mounted deploy diagnostic routes at /api/diagnostic');
 
 // Static file serving for exports
 app.use('/api/exports', express.static(path.join(__dirname, '..', 'exports')));

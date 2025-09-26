@@ -1,11 +1,11 @@
-# 📚 StudyScribe
+# 📚 Dicttr
 
 **Sistema completo para procesamiento y mejora de transcripciones con IA** - Herramienta definitiva para estudiantes que quieren optimizar su aprendizaje con inteligencia artificial.
 
 ## 🏗️ Nueva Estructura del Proyecto
 
 ```
-studyscribe/
+dicttr/
 ├── backend/                 # API Node.js + Express
 │   ├── src/
 │   │   ├── routes/         # Endpoints de la API
@@ -21,7 +21,7 @@ studyscribe/
 │   │   └── App.tsx
 │   └── package.json
 ├── mobile/                  # Aplicación móvil React Native
-│   └── StudyScribeMobile/
+│   └── DicttrMobile/
 │       ├── components/     # Componentes móviles
 │       ├── screens/        # Pantallas
 │       ├── services/       # Clientes API

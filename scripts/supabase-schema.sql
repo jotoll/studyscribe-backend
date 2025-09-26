@@ -1,4 +1,4 @@
--- StudyScribe Database Schema for Supabase SQL Editor
+-- Dicttr Database Schema for Supabase SQL Editor
 -- Execute this in Supabase Dashboard > SQL Editor
 
 -- 1. Create users table
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS transcriptions (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
-    subject TEXT DEFAULT 'general',
+    subject TEXT,
     original_text TEXT,
     enhanced_text TEXT,
     audio_file_url TEXT,
@@ -155,4 +155,4 @@ END;
 $$;
 
 -- Success message
-SELECT '✅ StudyScribe database schema created successfully!' as status;
+SELECT '✅ Dicttr database schema created successfully!' as status;

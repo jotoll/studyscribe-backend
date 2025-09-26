@@ -1,13 +1,33 @@
 const { createClient } = require('@supabase/supabase-js');
+const fs = require('fs');
+const path = require('path');
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+// Read .env file directly to avoid shell environment caching issues
+let supabaseUrl, supabaseKey;
+
+try {
+  const envPath = path.join(__dirname, '..', '..', 'backend', '.env');
+  const envContent = fs.readFileSync(envPath, 'utf8');
+
+  const urlMatch = envContent.match(/SUPABASE_URL=(.+)/);
+  const keyMatch = envContent.match(/SUPABASE_SERVICE_KEY=(.+)/);
+
+  supabaseUrl = urlMatch ? urlMatch[1].trim() : process.env.SUPABASE_URL;
+  supabaseKey = keyMatch ? keyMatch[1].trim() : process.env.SUPABASE_SERVICE_KEY;
+
+  console.log('✅ Loaded Supabase credentials directly from .env file');
+  console.log('Key role:', JSON.parse(Buffer.from(supabaseKey.split('.')[1], 'base64').toString()).role);
+} catch (error) {
+  console.warn('⚠️  Error reading .env file, falling back to process.env:', error.message);
+  supabaseUrl = process.env.SUPABASE_URL;
+  supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+}
 
 if (!supabaseUrl || !supabaseKey) {
   console.warn('⚠️  Supabase credentials not found. Using local storage fallback.');
 }
 
-const supabase = supabaseUrl && supabaseKey 
+const supabase = supabaseUrl && supabaseKey
   ? createClient(supabaseUrl, supabaseKey)
   : null;
 
@@ -177,7 +197,7 @@ module.exports = {
   },
 
   // Search transcriptions with filters and pagination
-  async searchTranscriptions({ userId, search, subject, favorite, sortBy = 'created_at', sortOrder = 'desc', limit = 20, offset = 0 }) {
+  async searchTranscriptions({ userId, search, subject, favorite, tags, sortBy = 'created_at', sortOrder = 'desc', limit = 20, offset = 0 }) {
     if (!supabase) {
       return { data: [], error: new Error('Supabase not configured') };
     }
@@ -189,10 +209,8 @@ module.exports = {
 
     // Apply search filter
     if (search && search.trim()) {
-      query = query.textSearch('search_vector', `'${search.trim()}'`, {
-        type: 'websearch',
-        config: 'spanish'
-      });
+      const searchTerm = `%${search.trim()}%`;
+      query = query.or(`title.ilike.${searchTerm},original_text.ilike.${searchTerm},enhanced_text.ilike.${searchTerm}`);
     }
 
     // Apply subject filter
@@ -205,6 +223,30 @@ module.exports = {
       query = query.eq('is_favorite', true);
     } else if (favorite === 'false') {
       query = query.eq('is_favorite', false);
+    }
+
+    // Apply tags filter
+    if (tags && tags.length > 0) {
+      // Primero obtener los IDs de transcripciones que tienen las etiquetas especificadas
+      const { data: taggedTranscriptions, error: tagError } = await supabase
+        .from('transcription_tags')
+        .select('transcription_id')
+        .in('tag_id', tags);
+
+      if (tagError) {
+        console.error('Error obteniendo transcripciones con etiquetas:', tagError);
+        return { data: [], error: tagError };
+      }
+
+      // Extraer los IDs únicos de transcripciones
+      const transcriptionIds = [...new Set(taggedTranscriptions.map(item => item.transcription_id))];
+      
+      if (transcriptionIds.length > 0) {
+        query = query.in('id', transcriptionIds);
+      } else {
+        // Si no hay transcripciones con esas etiquetas, devolver array vacío
+        return { data: [], error: null };
+      }
     }
 
     // Apply sorting
@@ -219,7 +261,7 @@ module.exports = {
   },
 
   // Count transcriptions with filters
-  async countTranscriptions({ userId, search, subject, favorite }) {
+  async countTranscriptions({ userId, search, subject, favorite, tags }) {
     if (!supabase) {
       return { count: 0, error: new Error('Supabase not configured') };
     }
@@ -231,7 +273,7 @@ module.exports = {
 
     // Apply search filter
     if (search && search.trim()) {
-      query = query.textSearch('search_vector', `'${search.trim()}'`, {
+      query = query.textSearch('search_vector', search.trim(), {
         type: 'websearch',
         config: 'spanish'
       });
@@ -247,6 +289,30 @@ module.exports = {
       query = query.eq('is_favorite', true);
     } else if (favorite === 'false') {
       query = query.eq('is_favorite', false);
+    }
+
+    // Apply tags filter
+    if (tags && tags.length > 0) {
+      // Primero obtener los IDs de transcripciones que tienen las etiquetas especificadas
+      const { data: taggedTranscriptions, error: tagError } = await supabase
+        .from('transcription_tags')
+        .select('transcription_id')
+        .in('tag_id', tags);
+
+      if (tagError) {
+        console.error('Error obteniendo transcripciones con etiquetas:', tagError);
+        return { count: 0, error: tagError };
+      }
+
+      // Extraer los IDs únicos de transcripciones
+      const transcriptionIds = [...new Set(taggedTranscriptions.map(item => item.transcription_id))];
+      
+      if (transcriptionIds.length > 0) {
+        query = query.in('id', transcriptionIds);
+      } else {
+        // Si no hay transcripciones con esas etiquetas, devolver 0
+        return { count: 0, error: null };
+      }
     }
 
     const { count, error } = await query;
@@ -285,5 +351,30 @@ module.exports = {
       favoriteCount: favoriteCount || 0,
       error: subjectsError || favoriteError
     };
+  },
+
+  // Get dates with transcriptions for calendar view
+  async getTranscriptionDates(userId) {
+    if (!supabase) {
+      return { dates: [], error: new Error('Supabase not configured') };
+    }
+
+    const { data, error } = await supabase
+      .from('transcriptions')
+      .select('created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return { dates: [], error };
+    }
+
+    // Extract unique dates (YYYY-MM-DD format)
+    const dates = [...new Set(data?.map(item => {
+      const date = new Date(item.created_at);
+      return date.toISOString().split('T')[0];
+    }) || [])];
+
+    return { dates, error: null };
   }
 };
