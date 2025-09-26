@@ -22,14 +22,20 @@ WORKDIR /app
 # Copiar solo los archivos esenciales primero
 COPY package.json package-lock.json* ./
 
-# Instalar dependencias de producción
-RUN npm ci --only=production --ignore-scripts
+# Instalar todas las dependencias (incluyendo devDependencies para build)
+RUN npm ci --ignore-scripts
 
 # Copiar el código fuente
 COPY . .
 
 # Crear directorios necesarios
 RUN mkdir -p uploads exports temp
+
+# Ejecutar npm audit fix para resolver vulnerabilidades
+RUN npm audit fix --force || true
+
+# Limpiar cache de npm para reducir tamaño de imagen
+RUN npm cache clean --force
 
 # Exponer el puerto
 EXPOSE 3001
