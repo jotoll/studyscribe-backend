@@ -1,9 +1,16 @@
 const app = require('./app');
 
-// Load .env file explicitly to ensure fresh environment variables
+// Load .env file only if it exists
 const path = require('path');
-const dotenv = require('dotenv');
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+const fs = require('fs');
+
+const envPath = path.join(__dirname, '..', '.env');
+if (fs.existsSync(envPath)) {
+  console.log('📁 Loading .env file from:', envPath);
+  require('dotenv').config({ path: envPath });
+} else {
+  console.log('⚠️  No .env file found, using system environment variables');
+}
 
 const PORT = process.env.PORT || 3001;
 

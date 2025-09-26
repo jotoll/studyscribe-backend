@@ -3,7 +3,27 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+// Cargar variables de entorno - priorizar variables del sistema
+const dotenv = require('dotenv');
+const fs = require('fs');
+
+// Verificar si existe el archivo .env y cargarlo solo si existe
+const envPath = path.join(__dirname, '..', '.env');
+if (fs.existsSync(envPath)) {
+  console.log('📁 Loading .env file from:', envPath);
+  dotenv.config({ path: envPath });
+} else {
+  console.log('⚠️  No .env file found, using system environment variables');
+}
+
+// Verificar variables críticas
+const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_SERVICE_KEY'];
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingVars.length > 0) {
+  console.warn('⚠️  Missing required environment variables:', missingVars);
+}
 
 const app = express();
 
