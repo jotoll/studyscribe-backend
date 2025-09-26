@@ -49,6 +49,14 @@ try {
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log(`🌐 Network access: http://192.168.1.140:${PORT}/health`);
       console.log('✅ Server started successfully');
+      
+      // Handle server errors
+      server.on('error', (error) => {
+        console.error('💥 SERVER ERROR:', error);
+        if (error.code === 'EADDRINUSE') {
+          console.log(`❌ Port ${PORT} is already in use`);
+        }
+      });
     });
   }).catch(error => {
     console.error('❌ Diagnostic failed:', error);
@@ -59,17 +67,16 @@ try {
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log(`🌐 Network access: http://192.168.1.140:${PORT}/health`);
       console.log('✅ Server started successfully');
+      
+      // Handle server errors
+      server.on('error', (error) => {
+        console.error('💥 SERVER ERROR:', error);
+        if (error.code === 'EADDRINUSE') {
+          console.log(`❌ Port ${PORT} is already in use`);
+        }
+      });
     });
   });
-
-  // Handle server errors
-  server.on('error', (error) => {
-    console.error('💥 SERVER ERROR:', error);
-    if (error.code === 'EADDRINUSE') {
-      console.log(`❌ Port ${PORT} is already in use`);
-    }
-  });
-
 } catch (error) {
   console.error('💥 FATAL ERROR during server startup:', error);
   process.exit(1);
