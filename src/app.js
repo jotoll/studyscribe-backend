@@ -50,6 +50,8 @@ const folderRoutes = require('./routes/folders');
 console.log('Loading folder routes...');
 const tagRoutes = require('./routes/tags');
 console.log('Loading tag routes...');
+const deployDiagnosticRoutes = require('./routes/deploy-diagnostic');
+console.log('Loading deploy diagnostic routes...');
 
 app.get('/', (req, res) => {
   res.json({ message: 'Dicttr API v1.0' });
@@ -76,6 +78,8 @@ app.use('/api/transcriptions', transcriptionManagementRoutes);
 console.log('Mounted transcription management routes at /api/transcriptions');
 app.use('/api/auth', authRoutes);
 console.log('Mounted auth routes at /api/auth');
+app.use('/api', deployDiagnosticRoutes);
+console.log('Mounted deploy diagnostic routes at /api');
 
 // Static file serving for exports
 app.use('/api/exports', express.static(path.join(__dirname, '..', 'exports')));

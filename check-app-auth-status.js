@@ -1,0 +1,25 @@
+// Script para verificar el estado de autenticación de la app
+console.log('🔍 Verificando estado de autenticación de la app móvil:');
+console.log('');
+console.log('📱 Problema identificado:');
+console.log('La app está mostrando transcripciones de todos los usuarios porque:');
+console.log('1. ❌ No está enviando token de autenticación');
+console.log('2. ❌ No está redirigiendo al login cuando no hay token');
+console.log('3. ❌ El backend está devolviendo todas las transcripciones sin filtro');
+console.log('');
+console.log('💡 Solución necesaria:');
+console.log('1. ✅ Backend ya está configurado correctamente (autenticación real)');
+console.log('2. ❌ App necesita redirigir al login cuando no hay token');
+console.log('3. ❌ App necesita enviar el token en todas las peticiones');
+console.log('');
+console.log('🚀 Pasos para resolver:');
+console.log('1. Detener Expo (Ctrl+C)');
+console.log('2. Limpiar cache de la app: npx expo start --tunnel --clear');
+console.log('3. La app debería redirigir automáticamente al login');
+console.log('4. Crear una cuenta nueva o iniciar sesión');
+console.log('5. Verificar que solo se ven las transcripciones propias');
+console.log('');
+console.log('🔧 Si el problema persiste:');
+console.log('- Verificar que no hay credenciales almacenadas en AsyncStorage');
+console.log('- Revisar que AuthNavigator redirige correctamente al login');
+console.log('- Verificar que el interceptor de axios está enviando el token');
