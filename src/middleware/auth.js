@@ -3,33 +3,50 @@ const jwt = require('jsonwebtoken');
 // JWT Secret - debería estar en variables de entorno
 const JWT_SECRET = process.env.JWT_SECRET || 'dicttr_secret_key_2024';
 
-// Middleware simplificado para desarrollo - evita problemas con Supabase
+// Middleware de autenticación real para producción
 const authenticateToken = async (req, res, next) => {
   try {
-    console.log('[Auth] Using simplified auth for development');
-    
-    // Usar ID fijo para desarrollo local - evita consultas a Supabase
-    const userId = 'f1bd3a53-8faf-4aa5-928c-048c3e056342';
-    
-    // Create a mock user for local development
-    req.user = {
-      id: userId,
-      email: 'torresllonch@gmail.com',
-      name: 'Local Development User',
-      subscription_status: 'free'
-    };
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
 
+    if (!token) {
+      console.log('[Auth] No token provided, returning 401');
+      return res.status(401).json({ 
+        error: 'Token de acceso requerido',
+        message: 'Debes iniciar sesión para acceder a este recurso'
+      });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    
+    console.log('[Auth] User authenticated:', { 
+      id: req.user.id, 
+      email: req.user.email 
+    });
+    
     return next();
   } catch (error) {
-    console.error('[Auth] Error in simplified auth middleware:', error);
-    // En caso de error, usar valores de fallback
-    req.user = {
-      id: 'f1bd3a53-8faf-4aa5-928c-048c3e056342',
-      email: 'torresllonch@gmail.com',
-      name: 'Local Development User',
-      subscription_status: 'free'
-    };
-    return next();
+    console.error('[Auth] Error verifying token:', error.message);
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        error: 'Token expirado',
+        message: 'Tu sesión ha expirado, por favor inicia sesión nuevamente'
+      });
+    }
+    
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ 
+        error: 'Token inválido',
+        message: 'Token de acceso inválido'
+      });
+    }
+    
+    return res.status(401).json({ 
+      error: 'Error de autenticación',
+      message: 'No se pudo verificar tu identidad'
+    });
   }
 };
 
