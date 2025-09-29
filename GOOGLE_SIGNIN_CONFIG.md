@@ -32,7 +32,7 @@ Los archivos de configuración se encuentran en `mobile/DicttrMobile/`:
 ```env
 EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=566515736319-sdiamlgig97o7l2r1s1qli96cerur61m.apps.googleusercontent.com
 EXPO_PUBLIC_SUPABASE_URL=https://sspkltkalkcwwfapfjuy.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzcGtsdGthbGtjd3dmYXBmanV5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzQzOTM2MiwiZXhwIjoyMDczMDE1MzYyfQ.hmh1YvzLa6rP4NEUiUs1VlDSaGOx2xIR0-QJZk_SceE
+EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_UhOoidt4esTgihItpipCpw_-wDXgOL_
 EXPO_PUBLIC_API_URL=https://studyscribe.zingyzong.com
 ```
 
