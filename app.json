@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "DicttrMobile",
+    "slug": "backend",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./mobile/DicttrMobile/assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "plugins": [],
+    "splash": {
+      "image": "./mobile/DicttrMobile/assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.dicttr.mobile",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./mobile/DicttrMobile/assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./mobile/DicttrMobile/assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "057999d2-d710-4e1c-9e3c-2c67d47e4c41"
+      }
+    }
+  }
+}

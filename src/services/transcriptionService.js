@@ -479,10 +479,21 @@ class TranscriptionService {
         return { id: `local_${Date.now()}`, success: true };
       }
 
+      // Generar subject automáticamente si no se proporciona
+      let subject = transcriptionData.subject;
+      if (!subject) {
+        subject = await this.generateSubjectFromContent(transcriptionData.enhanced_text || transcriptionData.original_text);
+        // Si falla la generación automática, usar "general" en lugar de "Nueva grabación"
+        if (!subject) {
+          subject = 'general';
+          console.log('⚠️  No se pudo generar subject automático, usando "general"');
+        }
+      }
+
       const transcriptionRecord = {
         user_id: userId,
         title: transcriptionData.enhanced_text?.title || 'Transcripción sin título',
-        subject: transcriptionData.subject || await this.generateSubjectFromContent(transcriptionData.enhanced_text || transcriptionData.original_text),
+        subject: subject,
         original_text: transcriptionData.original_text,
         enhanced_text: JSON.stringify(transcriptionData.enhanced_text),
         language: transcriptionData.language || 'es',
