@@ -129,6 +129,29 @@ router.post('/upload-file', authenticateToken, upload.single('audio'), async (re
       enhancedBlocks = transcriptionService.parseTextToBlocks(enhanced.enhanced_text);
     }
     
+    // Obtener el subject actualizado de la transcripción guardada
+    let updatedSubject = subject;
+    try {
+      // Consultar la transcripción recién guardada para obtener el subject actualizado
+      const { supabase } = require('../config/supabase.js');
+      if (supabase) {
+        const { data: savedTranscription, error } = await supabase
+          .from('transcriptions')
+          .select('subject')
+          .eq('id', saveResult.id)
+          .single();
+        
+        if (!error && savedTranscription) {
+          updatedSubject = savedTranscription.subject;
+          console.log('✅ Subject actualizado obtenido de la base de datos:', updatedSubject);
+        } else {
+          console.warn('⚠️ No se pudo obtener el subject actualizado de la base de datos:', error?.message);
+        }
+      }
+    } catch (dbError) {
+      console.warn('⚠️ Error obteniendo subject actualizado:', dbError.message);
+    }
+
     // Devolver formato JSON con bloques estructurados
     const responseData = {
       success: true,
@@ -147,7 +170,7 @@ router.post('/upload-file', authenticateToken, upload.single('audio'), async (re
           confidence: transcription.confidence
         },
         blocks: enhancedBlocks,
-        subject: subject,
+        subject: updatedSubject, // Usar el subject actualizado
         processed_at: enhanced.processed_at
       }
     };
