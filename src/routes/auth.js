@@ -137,6 +137,15 @@ router.get('/oauth/:provider/url', (req, res) => {
       return res.status(500).json({ error: 'Error generating OAuth URL', details: error.message });
     }
 
+    // Verificar que data y data.url existan
+    if (!data || !data.url) {
+      console.error('[OAuth] Invalid response from Supabase:', data);
+      return res.status(500).json({
+        error: 'Invalid response from authentication provider',
+        details: 'No URL returned from Supabase'
+      });
+    }
+
     console.log(`[OAuth] URL generated successfully: ${data.url}`);
     res.json({ success: true, data: { url: data.url } });
   } catch (error) {
