@@ -7,19 +7,19 @@ const Groq = require('groq-sdk');
 
 class TranscriptionService {
   // Transcripción con Groq Whisper API con manejo de límites y fallback local
-  async transcribeAudio(audioFile) {
+  async transcribeAudio(audioFile, language = 'es') {
     try {
       // Verificar si tenemos API key válida
       if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'gsk-your-groq-api-key-here') {
         console.log('⚠️  API key de Groq no configurada, usando transcripción local');
-        return this.localTranscription(audioFile);
+        return this.localTranscription(audioFile, language);
       }
 
       // Verificar si la API key parece ser inválida (basado en patrones comunes)
       const groqApiKey = process.env.GROQ_API_KEY;
       if (groqApiKey.includes('invalid') || groqApiKey.includes('expired') || groqApiKey.length < 20) {
         console.log('⚠️  API key de Groq parece inválida, usando transcripción local');
-        return this.localTranscription(audioFile);
+        return this.localTranscription(audioFile, language);
       }
 
       const groq = new Groq({
@@ -41,13 +41,13 @@ class TranscriptionService {
       let lastError;
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          console.log(`🔄 Intento ${attempt}/3 de transcripción con Groq`);
+          console.log(`🔄 Intento ${attempt}/3 de transcripción con Groq en idioma: ${language}`);
 
           const transcription = await Promise.race([
             groq.audio.transcriptions.create({
               file: audioStream,
               model: "whisper-large-v3-turbo",
-              language: "es",
+              language: language, // Usar el idioma especificado
               response_format: "verbose_json",
               temperature: 0.0
             }),
@@ -62,7 +62,7 @@ class TranscriptionService {
             confidence: 0.95,
             isSimulated: false,
             segments: transcription.segments || [],
-            language: transcription.language || "es",
+            language: transcription.language || language,
             file_size: fileSizeMB
           };
 
@@ -82,7 +82,7 @@ class TranscriptionService {
 
       // Si todos los intentos fallan
       console.warn('❌ Todos los intentos de transcripción con Groq fallaron, usando transcripción local');
-      return this.localTranscription(audioFile);
+      return this.localTranscription(audioFile, language);
 
     } catch (error) {
       console.warn('❌ Error final con Groq API:', error.message);
@@ -93,30 +93,49 @@ class TranscriptionService {
       }
 
       console.log('🔄 Usando transcripción local como fallback');
-      return this.localTranscription(audioFile);
+      return this.localTranscription(audioFile, language);
     }
   }
 
   // Transcripción local sin dependencia de API externa
-  localTranscription(audioFile) {
-    console.log('🎯 Usando transcripción local (sin API externa)');
+  localTranscription(audioFile, language = 'es') {
+    console.log(`🎯 Usando transcripción local (sin API externa) en idioma: ${language}`);
 
     const stats = fs.statSync(audioFile);
     const fileSizeMB = stats.size / (1024 * 1024);
     const duration = this.estimateDuration(audioFile);
 
-    // Textos de ejemplo para diferentes duraciones
-    const sampleTexts = [
-      "Hoy vamos a estudiar la fotosíntesis. La fotosíntesis es el proceso por el cual las plantas convierten la luz solar en energía química. Este proceso ocurre en los cloroplastos y tiene dos fases principales: la fase luminosa y la fase oscura o ciclo de Calvin.",
-      "En esta clase vamos a analizar los principios fundamentales de la física cuántica. La mecánica cuántica describe el comportamiento de partículas subatómicas y ha revolucionado nuestra comprensión del universo a nivel microscópico.",
-      "Vamos a estudiar la historia del arte renacentista. El Renacimiento fue un período de gran creatividad artística en Europa, caracterizado por el redescubrimiento de la cultura clásica y el desarrollo de nuevas técnicas como la perspectiva.",
-      "En esta sesión vamos a repasar los conceptos básicos de programación. La programación es el proceso de crear instrucciones para que una computadora ejecute tareas específicas, utilizando lenguajes como Python, JavaScript o Java.",
-      "Hoy vamos a aprender sobre anatomía humana. El cuerpo humano está compuesto por sistemas que trabajan en conjunto, incluyendo el sistema nervioso, circulatorio, respiratorio y digestivo."
-    ];
+    // Textos de ejemplo para diferentes duraciones e idiomas
+    const sampleTexts = {
+      es: [
+        "Hoy vamos a estudiar la fotosíntesis. La fotosíntesis es el proceso por el cual las plantas convierten la luz solar en energía química. Este proceso ocurre en los cloroplastos y tiene dos fases principales: la fase luminosa y la fase oscura o ciclo de Calvin.",
+        "En esta clase vamos a analizar los principios fundamentales de la física cuántica. La mecánica cuántica describe el comportamiento de partículas subatómicas y ha revolucionado nuestra comprensión del universo a nivel microscópico.",
+        "Vamos a estudiar la historia del arte renacentista. El Renacimiento fue un período de gran creatividad artística en Europa, caracterizado por el redescubrimiento de la cultura clásica y el desarrollo de nuevas técnicas como la perspectiva.",
+        "En esta sesión vamos a repasar los conceptos básicos de programación. La programación es el proceso de crear instrucciones para que una computadora ejecute tareas específicas, utilizando lenguajes como Python, JavaScript o Java.",
+        "Hoy vamos a aprender sobre anatomía humana. El cuerpo humano está compuesto por sistemas que trabajan en conjunto, incluyendo el sistema nervioso, circulatorio, respiratorio y digestivo."
+      ],
+      en: [
+        "Today we're going to study photosynthesis. Photosynthesis is the process by which plants convert sunlight into chemical energy. This process occurs in chloroplasts and has two main phases: the light phase and the dark phase or Calvin cycle.",
+        "In this class we will analyze the fundamental principles of quantum physics. Quantum mechanics describes the behavior of subatomic particles and has revolutionized our understanding of the universe at the microscopic level.",
+        "We are going to study the history of Renaissance art. The Renaissance was a period of great artistic creativity in Europe, characterized by the rediscovery of classical culture and the development of new techniques like perspective.",
+        "In this session we will review the basic concepts of programming. Programming is the process of creating instructions for a computer to perform specific tasks, using languages like Python, JavaScript, or Java.",
+        "Today we're going to learn about human anatomy. The human body is composed of systems that work together, including the nervous, circulatory, respiratory, and digestive systems."
+      ],
+      fr: [
+        "Aujourd'hui, nous allons étudier la photosynthèse. La photosynthèse est le processus par lequel les plantes convertissent la lumière du soleil en énergie chimique. Ce processus se produit dans les chloroplastes et comporte deux phases principales : la phase lumineuse et la phase sombre ou cycle de Calvin.",
+        "Dans ce cours, nous allons analyser les principes fondamentaux de la physique quantique. La mécanique quantique décrit le comportement des particules subatomiques et a révolutionné notre compréhension de l'univers au niveau microscopique.",
+        "Nous allons étudier l'histoire de l'art de la Renaissance. La Renaissance a été une période de grande créativité artistique en Europe, caractérisée par la redécouverte de la culture classique et le développement de nouvelles techniques comme la perspective.",
+        "Dans cette session, nous allons revoir les concepts de base de la programmation. La programmation est le processus de création d'instructions pour qu'un ordinateur exécute des tâches spécifiques, en utilisant des langages comme Python, JavaScript ou Java.",
+        "Aujourd'hui, nous allons apprendre l'anatomie humaine. Le corps humain est composé de systèmes qui travaillent ensemble, y compris les systèmes nerveux, circulatoire, respiratoire et digestif."
+      ]
+    };
 
+    // Seleccionar textos según el idioma, con fallback a español
+    const textsForLanguage = sampleTexts[language] || sampleTexts.es;
+    
     // Seleccionar texto basado en la duración del archivo
-    const textIndex = Math.min(Math.floor(duration / 30), sampleTexts.length - 1);
-    const text = sampleTexts[textIndex];
+    const textIndex = Math.min(Math.floor(duration / 30), textsForLanguage.length - 1);
+    const text = textsForLanguage[textIndex];
 
     // Crear segmentos simulados
     const segments = [];
@@ -140,31 +159,32 @@ class TranscriptionService {
       confidence: 0.85,
       isSimulated: true,
       segments: segments,
-      language: "es",
+      language: language,
       file_size: fileSizeMB
     };
   }
 
   // Mejorar transcripción con DeepSeek con manejo de textos largos y fallback local
-  async enhanceTranscription(rawText, subject = 'general') {
+  async enhanceTranscription(rawText, subject = 'general', translationLanguage = 'es') {
     try {
       console.log('🔍 Iniciando enhanceTranscription - Longitud texto:', rawText.length, 'caracteres');
+      console.log('🌍 Idioma de traducción:', translationLanguage);
       console.log('📝 Muestra del texto (primeros 200 chars):', rawText.substring(0, 200) + (rawText.length > 200 ? '...' : ''));
 
       // Verificar si tenemos API key válida
       if (!process.env.DEEPSEEK_API_KEY || process.env.DEEPSEEK_API_KEY === 'sk-your-deepseek-api-key-here') {
         console.log('⚠️  API key de DeepSeek no configurada, usando mejora local');
-        return this.localEnhancement(rawText, subject);
+        return this.localEnhancement(rawText, subject, translationLanguage);
       }
 
       // Verificar si la API key parece ser inválida (basado en patrones comunes)
       const deepseekApiKey = process.env.DEEPSEEK_API_KEY;
       if (deepseekApiKey.includes('invalid') || deepseekApiKey.includes('expired') || deepseekApiKey.length < 20) {
         console.log('⚠️  API key de DeepSeek parece inválida, usando mejora local');
-        return this.localEnhancement(rawText, subject);
+        return this.localEnhancement(rawText, subject, translationLanguage);
       }
 
-      const systemPrompt = this.getSystemPrompt(subject);
+      const systemPrompt = this.getSystemPrompt(subject, translationLanguage);
 
       // Verificar longitud del texto (límite: ~100,000 caracteres ≈ 25K tokens)
       if (rawText.length > 100000) {
@@ -206,7 +226,7 @@ class TranscriptionService {
           }
         }
 
-        // Combinar chunks mejorados (asumiendo que cada chunk es an objeto JSON)
+        // Combinar chunks mejorados (asumiendo que cada chunk es un objeto JSON)
         const combinedData = {
           title: "Transcripción Mejorada",
           sections: [],
@@ -331,16 +351,17 @@ class TranscriptionService {
       console.error('🔗 Error stack:', error.stack);
       console.error('📝 Texto que causó el error (primeros 500 chars):', rawText.substring(0, 500) + (rawText.length > 500 ? '...' : ''));
       console.error('🎯 Materia:', subject);
+      console.error('🌍 Idioma de traducción:', translationLanguage);
       console.error('⏰ Timestamp:', new Date().toISOString());
 
       console.log('🔄 Usando mejora local como fallback');
-      return this.localEnhancement(rawText, subject);
+      return this.localEnhancement(rawText, subject, translationLanguage);
     }
   }
 
   // Mejora local sin dependencia de API externa
-  localEnhancement(rawText, subject = 'general') {
-    console.log('🎯 Usando mejora local (sin API externa)');
+  localEnhancement(rawText, subject = 'general', translationLanguage = 'es') {
+    console.log(`🎯 Usando mejora local (sin API externa) en idioma: ${translationLanguage}`);
 
     // Crear estructura básica de mejora
     const words = rawText.split(' ');
@@ -417,15 +438,15 @@ class TranscriptionService {
   }
 
   // Generar material de estudio
-  async generateStudyMaterial(enhancedText, materialType = 'summary') {
+  async generateStudyMaterial(enhancedText, materialType = 'summary', language = 'es') {
     try {
       // Verificar si tenemos API key válida
       if (!process.env.DEEPSEEK_API_KEY || process.env.DEEPSEEK_API_KEY === 'sk-your-deepseek-api-key-here') {
         console.log('⚠️  API key de DeepSeek no configurada, usando material de estudio local');
-        return this.localStudyMaterial(enhancedText, materialType);
+        return this.localStudyMaterial(enhancedText, materialType, language);
       }
 
-      const prompt = this.getStudyPrompt(materialType);
+      const prompt = this.getStudyPrompt(materialType, language);
 
       const response = await deepseek.chat([
         {
@@ -441,38 +462,61 @@ class TranscriptionService {
       return {
         type: materialType,
         content: response.choices[0].message.content,
-        generated_at: new Date().toISOString()
+        generated_at: new Date().toISOString(),
+        language: language
       };
     } catch (error) {
       console.error('❌ Error generando material de estudio:', error.message);
       console.log('🔄 Usando material de estudio local como fallback');
-      return this.localStudyMaterial(enhancedText, materialType);
+      return this.localStudyMaterial(enhancedText, materialType, language);
     }
   }
 
   // Material de estudio local sin dependencia de API externa
-  localStudyMaterial(enhancedText, materialType = 'summary') {
-    console.log('🎯 Usando material de estudio local (sin API externa)');
+  localStudyMaterial(enhancedText, materialType = 'summary', language = 'es') {
+    console.log(`🎯 Usando material de estudio local (sin API externa) en idioma: ${language}`);
 
     const contentMap = {
-      summary: `Resumen local generado para: ${enhancedText.substring(0, 50)}...`,
-      flashcards: JSON.stringify([
-        { question: "¿Qué es la transcripción?", answer: "Proceso de convertir audio a texto" },
-        { question: "¿Para qué sirve Dicttr?", answer: "Para crear materiales de estudio a partir de grabaciones" }
-      ]),
-      concepts: "Conceptos clave: transcripción, estudio, aprendizaje, organización"
+      es: {
+        summary: `Resumen local generado para: ${enhancedText.substring(0, 50)}...`,
+        flashcards: JSON.stringify([
+          { question: "¿Qué es la transcripción?", answer: "Proceso de convertir audio a texto" },
+          { question: "¿Para qué sirve Dicttr?", answer: "Para crear materiales de estudio a partir de grabaciones" }
+        ]),
+        concepts: "Conceptos clave: transcripción, estudio, aprendizaje, organización"
+      },
+      en: {
+        summary: `Local summary generated for: ${enhancedText.substring(0, 50)}...`,
+        flashcards: JSON.stringify([
+          { question: "What is transcription?", answer: "Process of converting audio to text" },
+          { question: "What is Dicttr for?", answer: "To create study materials from recordings" }
+        ]),
+        concepts: "Key concepts: transcription, study, learning, organization"
+      },
+      fr: {
+        summary: `Résumé local généré pour: ${enhancedText.substring(0, 50)}...`,
+        flashcards: JSON.stringify([
+          { question: "Qu'est-ce que la transcription?", answer: "Processus de conversion de l'audio en texte" },
+          { question: "À quoi sert Dicttr?", answer: "Pour créer des matériaux d'étude à partir d'enregistrements" }
+        ]),
+        concepts: "Concepts clés: transcription, étude, apprentissage, organisation"
+      }
     };
+
+    // Usar el idioma especificado o fallback a español
+    const languageContent = contentMap[language] || contentMap.es;
 
     return {
       type: materialType,
-      content: contentMap[materialType] || contentMap.summary,
+      content: languageContent[materialType] || languageContent.summary,
       generated_at: new Date().toISOString(),
-      is_local: true
+      is_local: true,
+      language: language
     };
   }
 
   // Guardar transcripción en Supabase
-  async saveTranscriptionToDB(transcriptionData, userId, fileInfo = null) {
+  async saveTranscriptionToDB(transcriptionData, userId, fileInfo = null, languageOptions = {}) {
     try {
       if (!supabase) {
         console.warn('Supabase no configurado, guardando localmente');
@@ -496,7 +540,8 @@ class TranscriptionService {
         subject: subject,
         original_text: transcriptionData.original_text,
         enhanced_text: JSON.stringify(transcriptionData.enhanced_text),
-        language: transcriptionData.language || 'es',
+        language: languageOptions.language || transcriptionData.language || 'es',
+        translation_language: languageOptions.translation_language || 'es',
         processing_status: 'completed'
       };
 
@@ -725,7 +770,7 @@ class TranscriptionService {
   }
 
   // Prompts especializados por materia
-  getSystemPrompt(subject) {
+  getSystemPrompt(subject, translationLanguage = 'es') {
     const basePrompt = `Eres Dicttr AI, un asistente educativo especializado en mejorar transcripciones de clases universitarias. 
 
 Tu objetivo es:
@@ -735,6 +780,8 @@ Tu objetivo es:
 4. Organizar la información en secciones lógicas
 5. Mantener un lenguaje académico pero accesible
 6. Crear bloques editables para cada elemento importante
+
+IMPORTANTE: Genera el contenido mejorado en el idioma "${translationLanguage}". Todo el contenido debe estar en este idioma.
 
 IMPORTANTE: Devuelve el contenido en formato JSON estructurado con el siguiente schema:
 
@@ -779,7 +826,8 @@ Reglas:
 - Todos los bloques deben ser editables individualmente
 - Organiza el contenido de forma lógica y pedagógica
 - Incluye tantos bloques como necesites para cubrir el tema completamente
-- Solo devuelve JSON válido, sin texto adicional`;
+- Solo devuelve JSON válido, sin texto adicional
+- Todo el contenido debe estar en "${translationLanguage}"`;
 
     const subjectPrompts = {
       medicina: basePrompt + "\n\nEnfócate en terminología médica, procesos fisiológicos y casos clínicos.",
@@ -793,16 +841,34 @@ Reglas:
   }
 
   // Prompts para diferentes tipos de material de estudio
-  getStudyPrompt(materialType) {
+  getStudyPrompt(materialType, language = 'es') {
     const prompts = {
-      summary: "Genera un resumen estructurado con los puntos clave organizados en secciones. Máximo 300 palabras.",
-      flashcards: "Crea 5-8 flashcards en formato JSON con 'question' y 'answer'. Enfócate en conceptos clave.",
-      concepts: "Identifica y explica los 3-5 conceptos más importantes del texto. Para cada concepto incluye: definición, importancia y ejemplos.",
-      quiz: "Crea 5 preguntas de opción múltiple basadas en el contenido. Formato JSON con pregunta, opciones (a,b,c,d) y respuesta correcta.",
-      flowchart: "Genera un flujograma en sintaxis Mermaid que represente el proceso o sistema descrito. Usa formato claro con nodos rectangulares para procesos, rombos para decisiones, y flechas para flujo. Incluye solo el código Mermaid sin explicaciones."
+      es: {
+        summary: "Genera un resumen estructurado con los puntos clave organizados en secciones. Máximo 300 palabras.",
+        flashcards: "Crea 5-8 flashcards en formato JSON con 'question' y 'answer'. Enfócate en conceptos clave.",
+        concepts: "Identifica y explica los 3-5 conceptos más importantes del texto. Para cada concepto incluye: definición, importancia y ejemplos.",
+        quiz: "Crea 5 preguntas de opción múltiple basadas en el contenido. Formato JSON con pregunta, opciones (a,b,c,d) y respuesta correcta.",
+        flowchart: "Genera un flujograma en sintaxis Mermaid que represente el proceso o sistema descrito. Usa formato claro con nodos rectangulares para procesos, rombos para decisiones, y flechas para flujo. Incluye solo el código Mermaid sin explicaciones."
+      },
+      en: {
+        summary: "Generate a structured summary with key points organized in sections. Maximum 300 words.",
+        flashcards: "Create 5-8 flashcards in JSON format with 'question' and 'answer'. Focus on key concepts.",
+        concepts: "Identify and explain the 3-5 most important concepts in the text. For each concept include: definition, importance, and examples.",
+        quiz: "Create 5 multiple-choice questions based on the content. JSON format with question, options (a,b,c,d) and correct answer.",
+        flowchart: "Generate a flowchart in Mermaid syntax that represents the described process or system. Use clear format with rectangular nodes for processes, diamonds for decisions, and arrows for flow. Include only the Mermaid code without explanations."
+      },
+      fr: {
+        summary: "Générez un résumé structuré avec les points clés organisés en sections. Maximum 300 mots.",
+        flashcards: "Créez 5-8 flashcards au format JSON avec 'question' et 'answer'. Concentrez-vous sur les concepts clés.",
+        concepts: "Identifiez et expliquez les 3-5 concepts les plus importants du texte. Pour chaque concept incluez: définition, importance et exemples.",
+        quiz: "Créez 5 questions à choix multiples basées sur le contenu. Format JSON avec question, options (a,b,c,d) et réponse correcte.",
+        flowchart: "Générez un organigramme en syntaxe Mermaid qui représente le processus ou système décrit. Utilisez un format clair avec des nœuds rectangulaires pour les processus, des losanges pour les décisions, et des flèches pour le flux. Incluez uniquement le code Mermaid sans explications."
+      }
     };
 
-    return prompts[materialType] || prompts.summary;
+    // Usar el idioma especificado o fallback a español
+    const languagePrompts = prompts[language] || prompts.es;
+    return languagePrompts[materialType] || languagePrompts.summary;
   }
 
   // Generar flujograma específicamente
@@ -1325,7 +1391,7 @@ INSTRUCCIONES CRÍTICAS:
 
 IMPORTANTE: 
 - Solo devuelve el objeto JSON del bloque, sin texto adicional
-- NO uses markdown code blocks (\`\`\`json o \`\`\`)
+- NO usa markdown code blocks (\`\`\`json o \`\`\`)
 - Devuelve SOLO el objeto JSON crudo, sin comentarios ni explicaciones
 - Asegúrate de que el JSON sea válido y esté bien formado`;
 

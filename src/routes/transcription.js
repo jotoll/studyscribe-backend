@@ -63,15 +63,21 @@ router.post('/upload-file', authenticateToken, upload.single('audio'), async (re
       return res.status(400).json({ error: 'No se proporcionó archivo de audio' });
     }
 
-    const { subject = null, format } = req.body;
-
-    // 1. Transcribir audio
-    const transcription = await transcriptionService.transcribeAudio(req.file.path);
+    // Extraer parámetros del body, incluyendo los idiomas
+    const { subject = null, format, language = 'es', translation_language = 'es' } = req.body;
     
-    // 2. Mejorar transcripción con DeepSeek
+    console.log('🌍 Idiomas configurados:');
+    console.log(`   - Transcripción: ${language}`);
+    console.log(`   - Traducción: ${translation_language}`);
+
+    // 1. Transcribir audio con el idioma especificado
+    const transcription = await transcriptionService.transcribeAudio(req.file.path, language);
+    
+    // 2. Mejorar transcripción con DeepSeek, especificando el idioma de traducción
     const enhanced = await transcriptionService.enhanceTranscription(
       transcription.text, 
-      subject
+      subject,
+      translation_language
     );
 
     // 3. Guardar transcripción en Supabase
@@ -88,7 +94,11 @@ router.post('/upload-file', authenticateToken, upload.single('audio'), async (re
       saveResult = await transcriptionService.saveTranscriptionToDB(
         enhanced,
         userId,
-        fileInfo
+        fileInfo,
+        {
+          language,           // Usar la columna existente 'language' para el idioma de transcripción
+          translation_language  // Usar la nueva columna 'translation_language' para el idioma de traducción
+        }
       );
       
       console.log('✅ Transcripción guardada en Supabase con ID:', saveResult.id);
@@ -171,7 +181,9 @@ router.post('/upload-file', authenticateToken, upload.single('audio'), async (re
         },
         blocks: enhancedBlocks,
         subject: updatedSubject, // Usar el subject actualizado
-        processed_at: enhanced.processed_at
+        processed_at: enhanced.processed_at,
+        language: language, // Incluir idioma de transcripción
+        translation_language: translation_language // Incluir idioma de traducción
       }
     };
     
@@ -218,13 +230,13 @@ router.post('/upload-file', authenticateToken, upload.single('audio'), async (re
 // POST /api/transcription/enhance - Mejorar texto existente
 router.post('/enhance', async (req, res) => {
   try {
-    const { text, subject = null } = req.body;
+    const { text, subject = null, translation_language = 'es' } = req.body;
 
     if (!text) {
       return res.status(400).json({ error: 'Se requiere el texto a mejorar' });
     }
 
-    const enhanced = await transcriptionService.enhanceTranscription(text, subject);
+    const enhanced = await transcriptionService.enhanceTranscription(text, subject, translation_language);
 
     res.json({
       success: true,
@@ -243,7 +255,7 @@ router.post('/enhance', async (req, res) => {
 // POST /api/transcription/generate-material - Generar material de estudio
 router.post('/generate-material', async (req, res) => {
   try {
-    const { text, type = 'summary' } = req.body;
+    const { text, type = 'summary', language = 'es' } = req.body;
 
     if (!text) {
       return res.status(400).json({ error: 'Se requiere el texto base' });
@@ -256,7 +268,7 @@ router.post('/generate-material', async (req, res) => {
       });
     }
 
-    const material = await transcriptionService.generateStudyMaterial(text, type);
+    const material = await transcriptionService.generateStudyMaterial(text, type, language);
 
     res.json({
       success: true,
