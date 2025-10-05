@@ -64,20 +64,31 @@ router.post('/upload-file', authenticateToken, upload.single('audio'), async (re
     }
 
     // Extraer parámetros del body, incluyendo los idiomas
-    const { subject = null, format, language = 'es', translation_language = 'es' } = req.body;
+    const { 
+      subject = null, 
+      format, 
+      language = 'es', 
+      translation_language = 'es',
+      transcriptionLanguage = language,  // Nuevo parámetro desde móvil
+      translationLanguage = translation_language  // Nuevo parámetro desde móvil
+    } = req.body;
+    
+    // Usar los nuevos parámetros si están disponibles, si no usar los antiguos
+    const finalTranscriptionLanguage = transcriptionLanguage || language;
+    const finalTranslationLanguage = translationLanguage || translation_language;
     
     console.log('🌍 Idiomas configurados:');
-    console.log(`   - Transcripción: ${language}`);
-    console.log(`   - Traducción: ${translation_language}`);
+    console.log(`   - Transcripción: ${finalTranscriptionLanguage}`);
+    console.log(`   - Traducción: ${finalTranslationLanguage}`);
 
     // 1. Transcribir audio con el idioma especificado
-    const transcription = await transcriptionService.transcribeAudio(req.file.path, language);
+    const transcription = await transcriptionService.transcribeAudio(req.file.path, finalTranscriptionLanguage);
     
     // 2. Mejorar transcripción con DeepSeek, especificando el idioma de traducción
     const enhanced = await transcriptionService.enhanceTranscription(
       transcription.text, 
       subject,
-      translation_language
+      finalTranslationLanguage
     );
 
     // 3. Guardar transcripción en Supabase
@@ -96,8 +107,8 @@ router.post('/upload-file', authenticateToken, upload.single('audio'), async (re
         userId,
         fileInfo,
         {
-          language,           // Usar la columna existente 'language' para el idioma de transcripción
-          translation_language  // Usar la nueva columna 'translation_language' para el idioma de traducción
+          language: finalTranscriptionLanguage,           // Usar la columna existente 'language' para el idioma de transcripción
+          translation_language: finalTranslationLanguage  // Usar la nueva columna 'translation_language' para el idioma de traducción
         }
       );
       
