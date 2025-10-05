@@ -138,3 +138,27 @@ Thumbs.db
 
 # Claude settings
 .claude/
+
+
+# OAuth secrets
+check-oauth-propagation.js
+# OAuth secrets
+test-new-oauth-credentials.js
+# OAuth secrets
+wait-for-oauth-propagation.js
+# OAuth secrets
+CONFIGURE_SUPABASE_OAUTH.md
+# OAuth secrets
+OAUTH_ANDROID_WEB_GUIDE.md
+# OAuth secrets
+OAUTH_FINAL_SUMMARY.md
+# OAuth secrets
+test-oauth-after-config.js
+# OAuth secrets
+SUPABASE_OAUTH_STEP_BY_STEP.md
+# OAuth secrets
+direct-supabase-oauth-test.js
+# OAuth secrets
+test-oauth-final.js
+# OAuth secrets
+check-supabase-credentials.js
