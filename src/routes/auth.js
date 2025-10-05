@@ -110,15 +110,21 @@ router.get('/oauth/:provider/url', (req, res) => {
     const { provider } = req.params;
     const { redirectTo } = req.query;
     
+    console.log(`[OAuth] Generating URL for provider: ${provider}`);
+    console.log(`[OAuth] Redirect to: ${redirectTo}`);
+    
     if (!redirectTo) {
+      console.error('[OAuth] redirectTo parameter is required');
       return res.status(400).json({ error: 'redirectTo parameter is required' });
     }
 
     const validProviders = ['google', 'github', 'gitlab', 'azure', 'facebook'];
     if (!validProviders.includes(provider)) {
+      console.error(`[OAuth] Invalid provider: ${provider}`);
       return res.status(400).json({ error: 'Invalid OAuth provider' });
     }
 
+    console.log(`[OAuth] Calling Supabase signInWithOAuth for ${provider}`);
     const { data, error } = supabase.auth.signInWithOAuth({
       provider,
       options: {
@@ -127,14 +133,51 @@ router.get('/oauth/:provider/url', (req, res) => {
     });
 
     if (error) {
-      console.error('Error generating OAuth URL:', error);
-      return res.status(500).json({ error: 'Error generating OAuth URL' });
+      console.error('[OAuth] Error generating OAuth URL:', error);
+      return res.status(500).json({ error: 'Error generating OAuth URL', details: error.message });
     }
 
+    console.log(`[OAuth] URL generated successfully: ${data.url}`);
     res.json({ success: true, data: { url: data.url } });
   } catch (error) {
-    console.error('Error in OAuth URL generation:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('[OAuth] Error in OAuth URL generation:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Endpoint de prueba para OAuth
+router.get('/oauth/test', (req, res) => {
+  try {
+    console.log('[OAuth Test] Verificando configuración de Supabase...');
+    
+    if (!supabase) {
+      return res.status(500).json({ error: 'Supabase not configured' });
+    }
+    
+    // Probar una operación simple con Supabase
+    const { data, error } = supabase.auth.getSession();
+    
+    if (error) {
+      console.error('[OAuth Test] Error de Supabase:', error);
+      return res.status(500).json({
+        error: 'Supabase connection error',
+        details: error.message
+      });
+    }
+    
+    console.log('[OAuth Test] Conexión con Supabase exitosa');
+    res.json({
+      success: true,
+      message: 'Supabase connection working',
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('[OAuth Test] Error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      details: error.message
+    });
   }
 });
 
