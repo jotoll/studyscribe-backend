@@ -1,0 +1,62 @@
+{
+  "name": "dicttr-backend",
+  "description": "Dicttr Backend API",
+  "dockerCompose": "docker-compose.coolify.yml",
+  "environment": [
+    {
+      "name": "NODE_ENV",
+      "description": "Entorno de Node.js",
+      "default": "production",
+      "required": true
+    },
+    {
+      "name": "PORT",
+      "description": "Puerto del servidor",
+      "default": "3001",
+      "required": true
+    },
+    {
+      "name": "BASE_URL",
+      "description": "URL base del backend",
+      "default": "https://tu-dominio.com",
+      "required": true
+    },
+    {
+      "name": "DEEPSEEK_API_KEY",
+      "description": "Clave API de DeepSeek",
+      "default": "",
+      "required": true
+    },
+    {
+      "name": "GROQ_API_KEY",
+      "description": "Clave API de Groq",
+      "default": "",
+      "required": true
+    },
+    {
+      "name": "SUPABASE_URL",
+      "description": "URL de Supabase",
+      "default": "",
+      "required": true
+    },
+    {
+      "name": "SUPABASE_SERVICE_KEY",
+      "description": "Clave de servicio de Supabase",
+      "default": "",
+      "required": true
+    },
+    {
+      "name": "ALLOWED_ORIGINS",
+      "description": "Orígenes permitidos para CORS",
+      "default": "*",
+      "required": false
+    }
+  ],
+  "ports": ["3001:3001"],
+  "volumes": [
+    "uploads:/app/uploads",
+    "exports:/app/exports",
+    "temp:/app/temp"
+  ],
+  "restartPolicy": "unless-stopped"
+}

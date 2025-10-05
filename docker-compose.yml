@@ -1,0 +1,44 @@
+# Archivo principal de docker-compose para Coolify
+# Contiene la configuración completa del servicio
+
+version: '3.8'
+
+services:
+  # Servicio principal
+  dicttr-backend-v2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - BASE_URL=https://studyscribe.zingyzong.com
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - ALLOWED_ORIGINS=*
+      - DEBUG=false
+      - LOG_LEVEL=info
+      - MAX_FILE_SIZE=104857600
+      - UPLOAD_DIR=uploads/
+      - EXPORTS_DIR=exports/
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - uploads:/app/uploads
+      - exports:/app/exports
+      - temp:/app/temp
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  uploads:
+  exports:
+  temp:

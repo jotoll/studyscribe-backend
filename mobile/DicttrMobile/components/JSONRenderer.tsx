@@ -1,0 +1,545 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Modal, Pressable, Alert, ActivityIndicator, TextInput } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { JSONRendererStyles as styles } from './JSONRendererStyles';
+import { transcriptionAPI } from '../services/api';
+import {
+  HeadingRenderer,
+  ParagraphRenderer,
+  ListRenderer,
+  ConceptBlockRenderer,
+  SummaryBlockRenderer,
+  KeyConceptsBlockRenderer,
+  ExampleRenderer,
+  NoteRenderer,
+  QuoteRenderer,
+  CodeRenderer,
+  FormulaRenderer,
+  UnknownRenderer
+} from './SectionRenderers';
+
+interface JSONRendererProps {
+  data: any;
+  onEdit?: (path: string, element: any) => void;
+  onDelete?: (path: string, element: any) => void;
+  onAdd?: (type: string | any, position?: number) => void;
+  openModalEditor?: (content: any, path: string, element: any) => void;
+}
+
+const JSONRenderer: React.FC<JSONRendererProps> = ({ data, onEdit, onDelete, onAdd, openModalEditor }) => {
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [insertPosition, setInsertPosition] = useState<number | null>(null);
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [currentAISection, setCurrentAISection] = useState<any>(null);
+  const [currentAIIndex, setCurrentAIIndex] = useState<number | null>(null);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+
+  // Debug: Verificar estructura de datos
+  useEffect(() => {
+    console.log('=== JSONRENDERER DEBUG ===');
+    console.log('Datos recibidos:', data);
+    
+    if (data && typeof data === 'object') {
+      if (data.blocks) {
+        const conceptBlocks = data.blocks.filter((block: any) => block.type === 'concept');
+        console.log('Concept blocks encontrados:', conceptBlocks.length);
+        conceptBlocks.forEach((block: any, index: number) => {
+          console.log(`Concept block ${index + 1}:`, block);
+        });
+      }
+      
+      if (data.sections) {
+        const conceptSections = data.sections.filter((section: any) => section.type === 'concept');
+        console.log('Concept sections encontrados:', conceptSections.length);
+        conceptSections.forEach((section: any, index: number) => {
+          console.log(`Concept section ${index + 1}:`, section);
+        });
+      }
+    }
+    console.log('=== FIN DEBUG ===');
+  }, [data]);
+
+  if (!data) {
+    return <Text style={styles.empty}>No hay datos para mostrar</Text>;
+  }
+
+  // Si los datos vienen como string JSON dentro de raw_content, parsearlos
+  let parsedData = data;
+  if (typeof data === 'object' && data.raw_content) {
+    try {
+      // Extraer el JSON del string que puede contener markdown
+      const jsonMatch = data.raw_content.match(/```json\n([\s\S]*?)\n```/) || data.raw_content.match(/{[\s\S]*}/);
+      if (jsonMatch) {
+        parsedData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+      } else {
+        // Si no hay markdown, intentar parsear directamente
+        parsedData = JSON.parse(data.raw_content);
+      }
+    } catch (error) {
+      console.error('Error parsing JSON from raw_content:', error);
+      // Mantener los datos originales si hay error al parsear
+      parsedData = data;
+    }
+  }
+
+  // Normalizar la estructura de datos para ser compatible con ambos formatos
+  // Si viene en formato 'blocks' (de Deepseek), convertirlo a formato 'sections'
+  if (parsedData.blocks && !parsedData.sections) {
+    parsedData = {
+      ...parsedData,
+      sections: parsedData.blocks.map((block: any) => {
+        // Mapear tipos de blocks a tipos de sections
+        let type = block.type;
+        let level = 2;
+        
+        switch (block.type) {
+          case 'h1':
+            type = 'heading';
+            level = 1;
+            break;
+          case 'h2':
+            type = 'heading';
+            level = 2;
+            break;
+          case 'h3':
+            type = 'heading';
+            level = 3;
+            break;
+          case 'bulleted_list':
+            type = 'list';
+            break;
+          case 'numbered_list':
+            type = 'list';
+            break;
+          case 'paragraph':
+          case 'summary_block':
+          case 'concept_block':
+          case 'key_concepts_block':
+          case 'example':
+          case 'important_note':
+          case 'quote':
+          case 'code':
+          case 'formula':
+            type = block.type;
+            break;
+          // Mantener otros tipos como están
+        }
+        
+        return {
+          type,
+          content: block.text || block.content,
+          // Preservar campos específicos para diferentes tipos de bloques
+          ...(type === 'concept_block' && {
+            term: block.term,
+            definition: block.definition,
+            examples: block.examples
+          }),
+          ...(type === 'summary_block' && {
+            content: block.content
+          }),
+          ...(type === 'key_concepts_block' && {
+            concepts: block.concepts
+          }),
+          ...(type === 'heading' && { level }),
+          ...(type === 'list' && { 
+            style: block.type === 'numbered_list' ? 'numbered' : 'bulleted',
+            items: block.items || [block.text]
+          })
+        };
+      })
+    };
+  }
+
+  const handleEdit = (path: string, element: any) => {
+    console.log('JSONRenderer - Editando elemento:', path, element);
+    console.log('Tipo de elemento:', typeof element, 'Estructura:', JSON.stringify(element, null, 2));
+    
+    // Para todos los elementos, abrir el modal editor si está disponible
+    // Esto incluye title, summary, paragraphs, lists, concept_blocks, etc.
+    console.log('📝 Abriendo modal editor para elemento en path:', path);
+    console.log('Elemento a editar estructura:', JSON.stringify(element, null, 2));
+
+    // Determinar el contenido a editar basado en el tipo de elemento
+    let contentToEdit = element;
+
+    // Para elementos que son strings simples
+    if (typeof element === 'string') {
+      contentToEdit = element;
+    }
+    // Para todos los objetos (incluyendo título principal con title/summary y secciones)
+    // mantener el objeto completo para que el editor pueda acceder a todas las propiedades
+    // El editor modal necesita la estructura completa para renderizar correctamente
+
+    if (openModalEditor) {
+      console.log('📤 Llamando openModalEditor con contentToEdit:', typeof contentToEdit, JSON.stringify(contentToEdit));
+      console.log('📤 Element:', typeof element, JSON.stringify(element));
+      openModalEditor(contentToEdit, path, element);
+    } else if (onEdit) {
+      // Fallback al callback onEdit si openModalEditor no está disponible
+      onEdit(path, element);
+    }
+  };
+
+  const handleDelete = (path: string, element: any) => {
+    if (onDelete) {
+      onDelete(path, element);
+    }
+  };
+
+  // Generar contenido para bloque con IA
+  const generateBlockWithAI = async (section: any, index: number, userPrompt: string) => {
+    try {
+      setAiLoading(true);
+      
+      // Convertir todo el contenido a texto para contexto
+      const contextText = JSON.stringify(parsedData, null, 2);
+      console.log('📋 Contexto enviado a IA (primeros 200 chars):', contextText.substring(0, 200));
+      
+      console.log('🔍 Generando bloque con IA - Tipo:', section.type);
+      console.log('📝 Prompt completo del usuario:', userPrompt);
+      console.log('📋 Contexto length:', contextText.length);
+      
+      const response = await transcriptionAPI.generateBlock(
+        section.type,
+        userPrompt,
+        contextText,
+        'general'
+      );
+
+      console.log('📱 Respuesta del backend:', JSON.stringify(response, null, 2));
+
+      if (response.success && response.data.generated_content) {
+        console.log('🎯 Contenido generado recibido:', JSON.stringify(response.data.generated_content, null, 2));
+        
+        // Crear un nuevo bloque con el contenido generado por IA (en lugar de reemplazar)
+        let newBlock = response.data.generated_content;
+        
+        // Si el contenido viene como string (con markdown), extraer el JSON
+        if (typeof newBlock === 'string') {
+          console.log('📄 Contenido es string, intentando extraer JSON...');
+          
+          // Intentar extraer JSON del formato markdown ```json\n{...}\n```
+          const jsonMatch = newBlock.match(/```json\n([\s\S]*?)\n```/) || newBlock.match(/{[\s\S]*}/);
+          
+          if (jsonMatch) {
+            try {
+              const jsonContent = jsonMatch[1] || jsonMatch[0];
+              console.log('🎯 JSON extraído:', jsonContent.substring(0, 200) + '...');
+              newBlock = JSON.parse(jsonContent);
+              console.log('✅ JSON parseado correctamente:', JSON.stringify(newBlock, null, 2));
+            } catch (parseError) {
+              console.error('❌ Error parsing JSON from markdown:', parseError);
+              // Si falla el parsing, usar el contenido como párrafo
+              newBlock = {
+                type: 'paragraph',
+                content: newBlock.replace(/```json\n?|\n?```/g, '').trim()
+              };
+            }
+          } else {
+            // Si no hay formato markdown, usar como párrafo
+            newBlock = {
+              type: 'paragraph',
+              content: newBlock.trim()
+            };
+          }
+        }
+        
+        console.log('➕ Nuevo bloque generado:', JSON.stringify(newBlock, null, 2));
+        
+        // Llamar a onAdd para insertar un nuevo bloque en la misma posición
+        if (onAdd) {
+          console.log('📤 Insertando nuevo bloque en la posición:', index);
+          console.log('📦 Bloque a insertar:', JSON.stringify(newBlock, null, 2));
+          onAdd(newBlock, index);
+        } else {
+          console.error('❌ onAdd callback no está definido');
+        }
+        Alert.alert('✅ Éxito', 'Nuevo bloque generado con IA');
+      } else {
+        console.error('❌ Error en la respuesta del backend:', response);
+        Alert.alert('❌ Error', 'No se pudo generar el contenido con IA');
+      }
+      
+    } catch (error) {
+      console.error('Error generando bloque con IA:', error);
+      Alert.alert('❌ Error', 'No se pudo generar el contenido con IA');
+    } finally {
+      setAiLoading(false);
+      setShowAIModal(false);
+      setAiPrompt('');
+    }
+  };
+
+  // Abrir modal de IA para un bloque específico
+  const openAIModal = (section: any, index: number) => {
+    setCurrentAISection(section);
+    setCurrentAIIndex(index);
+    setShowAIModal(true);
+  };
+
+  const handleAddBlock = (typeOrBlock: string | any) => {
+    setShowAddMenu(false);
+    
+    // Llamar al callback onAdd si está definido
+    if (onAdd) {
+      // Asegurarse de que insertPosition no sea null
+      const position = insertPosition !== null ? insertPosition : undefined;
+      onAdd(typeOrBlock, position);
+    }
+    
+    // Resetear la posición de inserción
+    setInsertPosition(null);
+  };
+
+  const renderSection = (section: any, index: number) => {
+    const sectionKey = `section-${index}-${section.type}-${section.content?.substring(0, 20) || 'empty'}`;
+
+    const rendererProps = {
+      section,
+      index,
+      onEdit: handleEdit,
+      onDelete: handleDelete,
+      onAdd: handleAddBlock,
+      openAIModal,
+      setInsertPosition,
+      setShowAddMenu
+    };
+
+    switch (section.type) {
+      case 'heading':
+        return <HeadingRenderer key={sectionKey} {...rendererProps} />;
+
+      case 'paragraph':
+        return <ParagraphRenderer key={sectionKey} {...rendererProps} />;
+
+      case 'list':
+        return <ListRenderer key={sectionKey} {...rendererProps} />;
+
+      case 'concept_block':
+        return <ConceptBlockRenderer key={sectionKey} {...rendererProps} />;
+
+      case 'summary_block':
+        return <SummaryBlockRenderer key={sectionKey} {...rendererProps} />;
+
+      case 'key_concepts_block':
+        return <KeyConceptsBlockRenderer key={sectionKey} {...rendererProps} />;
+
+      case 'summary':
+        return <SummaryBlockRenderer key={sectionKey} {...rendererProps} />;
+
+      case 'example':
+      case 'example_block':
+        return <ExampleRenderer key={sectionKey} {...rendererProps} />;
+
+      case 'important_note':
+        return <NoteRenderer key={sectionKey} {...rendererProps} />;
+
+      case 'quote':
+        return <QuoteRenderer key={sectionKey} {...rendererProps} />;
+
+      case 'code':
+        return <CodeRenderer key={sectionKey} {...rendererProps} />;
+
+      case 'formula':
+        return <FormulaRenderer key={sectionKey} {...rendererProps} />;
+
+      default:
+        return <UnknownRenderer key={sectionKey} {...rendererProps} />;
+    }
+  };
+
+  return (
+    <View style={styles.mainContainer}>
+      <ScrollView style={styles.container}>
+      {/* Título principal si está disponible - Editable */}
+      {(parsedData.title || parsedData.summary) && (
+        <View style={styles.mainTitleContainer}>
+          <TouchableOpacity 
+            style={[styles.mainTitleTouchable, styles.editableContainer]}
+            onPress={() => handleEdit('title', {title: parsedData.title, summary: parsedData.summary})}
+          >
+            <Text style={styles.mainTitle}>
+              {parsedData.title || 'Resumen de la Clase'}
+            </Text>
+            {parsedData.summary && (
+              <Text style={styles.mainSummary}>{parsedData.summary}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Todas las secciones en un array unificado */}
+      {parsedData.sections && parsedData.sections.map((section: any, index: number) => (
+        renderSection(section, index)
+      ))}
+
+      {/* Fallback para datos crudos */}
+      {!parsedData.sections && (
+        <View style={styles.rawContainer}>
+          <Text style={styles.rawTitle}>Datos en formato crudo:</Text>
+          <Text style={styles.rawText}>{JSON.stringify(parsedData, null, 2)}</Text>
+        </View>
+      )}
+
+      </ScrollView>
+
+      {/* Botón para añadir bloque al final */}
+      <View style={styles.addBottomContainer}>
+        <TouchableOpacity 
+          style={styles.addBottomButton}
+          onPress={() => {
+            setInsertPosition(parsedData.sections ? parsedData.sections.length : 0);
+            setShowAddMenu(true);
+          }}
+        >
+          <Ionicons name="add" size={16} color="#3ba3a4" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Modal para seleccionar tipo de bloque */}
+      <Modal
+        visible={showAddMenu}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowAddMenu(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowAddMenu(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Seleccionar tipo de bloque</Text>
+            
+            <Pressable 
+              style={styles.modalOption}
+              onPress={() => handleAddBlock('heading')}
+            >
+              <Ionicons name="text" size={20} color="#3ba3a4" />
+              <Text style={styles.modalOptionText}>Encabezado</Text>
+            </Pressable>
+            
+            <Pressable 
+              style={styles.modalOption}
+              onPress={() => handleAddBlock('paragraph')}
+            >
+              <Ionicons name="document-text" size={20} color="#3ba3a4" />
+              <Text style={styles.modalOptionText}>Párrafo</Text>
+            </Pressable>
+            
+            <Pressable 
+              style={styles.modalOption}
+              onPress={() => handleAddBlock('list')}
+            >
+              <Ionicons name="list" size={20} color="#3ba3a4" />
+              <Text style={styles.modalOptionText}>Lista</Text>
+            </Pressable>
+            
+            <Pressable 
+              style={styles.modalOption}
+              onPress={() => handleAddBlock('concept_block')}
+            >
+              <Ionicons name="bulb" size={20} color="#3ba3a4" />
+              <Text style={styles.modalOptionText}>Concepto</Text>
+            </Pressable>
+            
+            <Pressable 
+              style={styles.modalOption}
+              onPress={() => handleAddBlock('summary_block')}
+            >
+              <Ionicons name="document-text" size={20} color="#3ba3a4" />
+              <Text style={styles.modalOptionText}>Resumen</Text>
+            </Pressable>
+            
+            <Pressable 
+              style={styles.modalOption}
+              onPress={() => handleAddBlock('key_concepts_block')}
+            >
+              <Ionicons name="key" size={20} color="#3ba3a4" />
+              <Text style={styles.modalOptionText}>Conceptos Clave</Text>
+            </Pressable>
+            
+            <Pressable 
+              style={[styles.modalOption, styles.modalCancel]}
+              onPress={() => setShowAddMenu(false)}
+            >
+              <Ionicons name="close" size={20} color="#666" />
+              <Text style={[styles.modalOptionText, styles.modalCancelText]}>Cancelar</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Modal para generación con IA */}
+      <Modal
+        visible={showAIModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowAIModal(false);
+          setAiPrompt('');
+        }}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => {
+            setShowAIModal(false);
+            setAiPrompt('');
+          }}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Generar con IA</Text>
+            
+            <Text style={{marginBottom: 8, fontSize: 14, color: '#666'}}>
+              ¿Qué quieres que genere la IA para este bloque?
+            </Text>
+            
+            <TextInput
+              style={styles.modalInput}
+              multiline={true}
+              placeholder="Ej: Explica este concepto con más detalle, añade ejemplos prácticos, etc."
+              value={aiPrompt}
+              onChangeText={setAiPrompt}
+            />
+            
+            {aiLoading ? (
+              <View style={{alignItems: 'center', padding: 16}}>
+                <ActivityIndicator size="small" color="#3ba3a4" />
+                <Text style={{marginTop: 8, fontSize: 12, color: '#666'}}>
+                  Generando con IA...
+                </Text>
+              </View>
+            ) : (
+              <View style={{flexDirection: 'row', gap: 8, marginTop: 16}}>
+                <Pressable
+                  style={[styles.modalOption, styles.modalGenerate, {flex: 1}]}
+                  onPress={() => {
+                    if (aiPrompt.trim() && currentAISection && currentAIIndex !== null) {
+                      generateBlockWithAI(currentAISection, currentAIIndex, aiPrompt);
+                    }
+                  }}
+                >
+                  <Ionicons name="sparkles" size={16} color="white" />
+                  <Text style={[styles.modalOptionText, styles.modalGenerateText]}>Generar</Text>
+                </Pressable>
+                
+                <Pressable 
+                  style={[styles.modalOption, styles.modalCancel, {flex: 1}]}
+                  onPress={() => {
+                    setShowAIModal(false);
+                    setAiPrompt('');
+                  }}
+                >
+                  <Ionicons name="close" size={16} color="#666" />
+                  <Text style={[styles.modalOptionText, styles.modalCancelText]}>Cancelar</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+};
+
+export default JSONRenderer;

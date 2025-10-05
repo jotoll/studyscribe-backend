@@ -1,0 +1,26 @@
+// Script para mostrar los comandos de despliegue en Coolify
+console.log('🚀 Comandos para despliegue en Coolify - Configuración de Idiomas');
+console.log('=====================================================');
+console.log('');
+console.log('📋 PASOS PARA EL DESPLIEGUE:');
+console.log('');
+console.log('1. Ejecuta este script SQL en Supabase:');
+console.log('   Copia el contenido del archivo: scripts/add-translation-language-column.sql');
+console.log('   Pégalo en el editor SQL de Supabase y ejecútalo');
+console.log('');
+console.log('2. Sube los archivos modificados a tu servidor en Coolify:');
+console.log('   - src/routes/transcription.js');
+console.log('   - src/services/transcriptionService.js');
+console.log('');
+console.log('3. Configura estas variables de entorno en Coolify:');
+console.log('   - GOOGLE_CLIENT_ID');
+console.log('   - GOOGLE_CLIENT_SECRET');
+console.log('   - GROQ_API_KEY');
+console.log('   - DEEPSEEK_API_KEY');
+console.log('');
+console.log('4. Reinicia el servidor en Coolify');
+console.log('');
+console.log('📄 Para probar la configuración, ejecuta:');
+console.log('   node test-language-config-backend.js');
+console.log('');
+console.log('✅ ¡Listo! Ya tienes soporte para múltiples idiomas en Dicttr.');

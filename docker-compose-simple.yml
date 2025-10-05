@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  studyscribe-backend:
+    build: .
+    container_name: studyscribe-backend
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./exports:/app/exports
+      - ./temp:/app/temp
+    restart: unless-stopped
